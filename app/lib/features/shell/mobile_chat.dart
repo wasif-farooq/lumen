@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
+import 'dart:async';
+
 import '../../core/app_state.dart';
+import '../../core/errors/run_guarded.dart';
 import '../../core/format.dart';
 import '../../shared/theme.dart';
 import '../../shared/widgets/common.dart';
 import '../chat/chat_view.dart';
+import '../chat/composer.dart';
 import '../preview/file_details.dart';
 
 /// Phone: the chat with the paired laptop, chats in the drawer, results open in a sheet.
@@ -20,28 +24,20 @@ class MobileChat extends StatefulWidget {
 class _MobileChatState extends State<MobileChat> {
   AppState get s => widget.state;
 
-  Future<void> _open(Hit hit, {double start = 0}) async {
-    try {
-      final msg = await s.api.open(hit.path, start: start);
-      _toast(msg.startsWith('NOT OPENED') ? 'Test mode: nothing was opened.' : 'Opened on ${s.host}${start > 0 ? ' at ${clock(start)}' : ''}');
-    } catch (e) {
-      _toast('$e');
-    }
-  }
+  Future<void> _open(Hit hit, {double start = 0}) => runGuarded<String>(
+        context,
+        () => s.api.open(hit.path, start: start),
+        failure: 'Could not open ${hit.name}',
+        success: (msg) => msg.startsWith('NOT OPENED')
+            ? 'Test mode: nothing was opened.'
+            : 'Opened on ${s.host}${start > 0 ? ' at ${clock(start)}' : ''}',
+      );
 
-  Future<void> _show(Hit hit) async {
-    try {
-      await s.api.show(hit.path);
-      _toast('Folder opened on ${s.host}');
-    } catch (e) {
-      _toast('$e');
-    }
-  }
-
-  void _toast(String m) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+  Future<void> _show(Hit hit) =>
+      runGuarded<String>(context, () => s.api.show(hit.path), failure: 'Could not show ${hit.name}', success: (_) => 'Folder opened on ${s.host}');
 
   void _sheet(Hit hit) {
-    showModalBottomSheet(
+    unawaited(showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
@@ -53,23 +49,23 @@ class _MobileChatState extends State<MobileChat> {
           mobile: true,
           onOpen: (h, {double start = 0}) {
             Navigator.pop(context);
-            _open(h, start: start);
+            unawaited(_open(h, start: start));
           },
           onShow: () {
             Navigator.pop(context);
-            _show(hit);
+            unawaited(_show(hit));
           },
           onAsk: (q) {
             Navigator.pop(context);
-            s.send(q);
+            unawaited(s.send(q));
           },
           onSimilar: () {
             Navigator.pop(context);
-            s.findSimilar(path: hit.path);
+            unawaited(s.findSimilar(path: hit.path));
           },
         ),
       ),
-    );
+    ));
   }
 
   @override
@@ -111,7 +107,7 @@ class _MobileChatState extends State<MobileChat> {
                           selectedTileColor: C.raised,
                           onTap: () {
                             Navigator.pop(context);
-                            s.openChat(c.id);
+                            unawaited(s.openChat(c.id));
                           },
                         ),
                     ]),

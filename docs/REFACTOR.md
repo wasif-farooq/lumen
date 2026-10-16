@@ -74,18 +74,19 @@ build's import check still named the old `lumen.server` (fixed).
 - [x] `/api/diagnostics` (laptop only, no keys) for the app's "Copy diagnostics"
 - [x] Tests for error responses and logging (`test_errors_and_logs.py`, 13 tests)
 
-## Phase 3: App structure and error display ⬜
+## Phase 3: App structure and error display ✅
 
-- [ ] `core/api/`: `ApiClient` (timeouts, read retries, error parsing → `ApiError`) + one small API class per area
-- [ ] `core/models/`: one file per model (Hit, ChatEvent, FileInfo, Provider…)
-- [ ] `core/errors/`: `AppError`, `ErrorReporter` (also catches uncaught Flutter/Dart errors)
-- [ ] `core/logging/`: console, plus a log file on desktop
-- [ ] `features/` (chat, sync, models, settings, pairing, shell): one `ChangeNotifier` controller each; widgets only display
-- [ ] `runGuarded` helper replaces the scattered `catch` blocks; switch on lints `avoid_catches_without_on_clauses` (29 today), `discarded_futures` (21), `avoid_dynamic_calls` (79, fixed by typed models)
-- [ ] Error display: snackbar + Details (failed action), inline card + Retry (failed load), full screen (server unreachable), dialog (needs a decision), "Something went wrong (id …)" for unexpected ones; never raw exception text
-- [ ] Settings → General: "Open logs" and "Copy diagnostics"
-- [ ] `shared/widgets/` for reusable pieces; no widget file over ~200 lines
-- [ ] All UI tests pass; screenshots unchanged except the new error states
+- [x] `core/api/`: `ApiClient` (timeouts, one retry for reads nobody answered, error parsing → `ApiError` with code, message, hint and request id) + one small API mixin per area (system, chats, files, index, providers, pairing)
+- [x] `core/models/`: `Hit`, `Chat`/`ChatEvent`, `FileInfo`/`Segment`, and `json.dart` helpers for reading nested JSON safely
+- [x] `core/errors/`: `userMessage`, `ErrorReporter` (uncaught Flutter and async errors go to the log, one calm line on screen), `runGuarded`
+- [x] `core/logging/`: console in debug, the last 300 lines in memory, `app.log` on desktop next to the server's logs; repeated lines are folded
+- [x] `features/` (chat, preview, sync, models, settings, pairing, shell): a `ChangeNotifier` controller each for sync, models and general settings (chat state stays in `AppState`, split into `ChatState`); dialogs and messages in `*_actions.dart`; widgets only display
+- [x] `runGuarded` replaces the scattered `catch` blocks; lints on: `avoid_catches_without_on_clauses`, `discarded_futures`, `unawaited_futures`, `avoid_dynamic_calls` (60 findings after the split, all fixed)
+- [x] Error display: snackbar + Details (failed action: hint and request id), inline card + Retry (failed load), full screen (server unreachable, desktop), dialog (a folder that could not be added); "Something went wrong (id …)" for unexpected server errors; never raw exception text
+- [x] An index run that crashed shows "Indexing stopped unexpectedly" with where the log is
+- [x] Settings → General: "Problems" card with "Open logs" and "Copy diagnostics" (server versions, models, last log lines and the app log; no keys)
+- [x] `shared/widgets/` for reusable pieces; no file over 200 lines (largest: `chat_view.dart`, 184)
+- [x] Golden screenshots unchanged except Settings (the new Problems card); 7 new tests for error display (23 in all)
 
 ## Phase 4: Clean-up ⬜
 

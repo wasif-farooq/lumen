@@ -27,10 +27,10 @@ class _ZoomState extends State<Zoom> {
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_onKey);
-    SharedPreferences.getInstance().then((p) {
+    unawaited(SharedPreferences.getInstance().then((p) {
       final saved = p.getDouble(_key);
       if (saved != null && mounted) setState(() => zoom = saved.clamp(_min, _max));
-    });
+    }));
   }
 
   @override
@@ -51,7 +51,7 @@ class _ZoomState extends State<Zoom> {
     _hide = Timer(const Duration(milliseconds: 1200), () {
       if (mounted) setState(() => _showLevel = false);
     });
-    SharedPreferences.getInstance().then((p) => p.setDouble(_key, z));
+    unawaited(SharedPreferences.getInstance().then((p) => p.setDouble(_key, z)));
   }
 
   bool _onKey(KeyEvent e) {

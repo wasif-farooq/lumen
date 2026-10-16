@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/api/api.dart';
@@ -26,7 +28,7 @@ class _MobileConnectState extends State<MobileConnect> {
   @override
   void initState() {
     super.initState();
-    _scan();
+    unawaited(_scan());
   }
 
   Future<void> _scan() async {
@@ -50,9 +52,13 @@ class _MobileConnectState extends State<MobileConnect> {
     });
     try {
       final r = await Api(base).pair(_code.text.trim(), 'Phone');
-      widget.onPaired(base, r['token'], r['host'] ?? addr);
-    } catch (e) {
-      setState(() => error = e is ApiError && e.status == 403 ? 'Wrong or expired code. Make a new one on the laptop.' : 'Could not reach $base');
+      widget.onPaired(base, '${r['token']}', '${r['host'] ?? addr}');
+    } on ApiError catch (e) {
+      setState(() => error = switch (e) {
+            ApiError(status: 403) => 'Wrong or expired code. Make a new one on the laptop.',
+            ApiError(isConnection: true) => 'Could not reach $base',
+            _ => e.message,
+          });
     } finally {
       if (mounted) setState(() => pairing = false);
     }
@@ -131,7 +137,7 @@ class _MobileConnectState extends State<MobileConnect> {
                 style: monoStyle(size: 28, color: C.text).copyWith(letterSpacing: 14),
                 decoration: _boxed('······').copyWith(counterText: ''),
                 onChanged: (v) {
-                  if (v.length == 6) _pair();
+                  if (v.length == 6) unawaited(_pair());
                 },
               ),
               if (error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(error!, style: const TextStyle(color: C.red))),

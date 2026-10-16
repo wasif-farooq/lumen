@@ -15,6 +15,8 @@ class Log {
   static final recent = ListQueue<String>();
   static const _keep = 300;
   static File? _file;
+  static String? _last; // the previous message, to fold repeats (a poll failing every 2 s)
+  static int _repeats = 0;
   static const _maxBytes = 1000000;
 
   /// Also write to the log file (desktop). Called once at start.
@@ -47,10 +49,21 @@ class Log {
   void error(String message, [Object? error, StackTrace? stack]) => _write(Level.error, message, error, stack);
 
   void _write(Level level, String message, [Object? error, StackTrace? stack]) {
+    final key = '$level $name $message $error';
+    if (key == _last && stack == null) {
+      _repeats++;
+      return;
+    }
+    if (_repeats > 0) _emit(level, '$name (the previous line repeated $_repeats more times)');
+    _last = key;
+    _repeats = 0;
     final line = StringBuffer('${DateTime.now().toIso8601String()} ${level.name.toUpperCase().padRight(7)} $name $message');
     if (error != null) line.write(' ($error)');
     if (stack != null) line.write('\n$stack');
-    final text = line.toString();
+    _emit(level, line.toString());
+  }
+
+  static void _emit(Level level, String text) {
     if (kDebugMode && level != Level.debug) debugPrint(text);
     if (level == Level.debug) return;
     recent.addLast(text);

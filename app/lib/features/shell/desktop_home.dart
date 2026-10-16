@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -6,6 +8,7 @@ import '../../core/app_state.dart';
 import '../../shared/theme.dart';
 import '../../shared/widgets/common.dart';
 import 'desktop_shell.dart';
+import '../../core/errors/errors.dart';
 
 /// Desktop: talk to the server on this machine; offer to start it when it isn't running.
 class DesktopHome extends StatefulWidget {
@@ -30,7 +33,7 @@ class _DesktopHomeState extends State<DesktopHome> {
   @override
   void initState() {
     super.initState();
-    _connect();
+    unawaited(_connect());
   }
 
   Future<void> _connect() async {
@@ -59,8 +62,9 @@ class _DesktopHomeState extends State<DesktopHome> {
         await Future.delayed(const Duration(milliseconds: 750));
         if (await state.connect()) break;
       }
-    } catch (e) {
-      state.connectError = 'Could not start the server: $e';
+    } on Object catch (e, st) {
+      logUnexpected('start server', e, st);
+      state.connectError = 'Could not start the server: ${e is ProcessException ? e.message : userMessage(e)}';
     }
     if (mounted) {
       setState(() {

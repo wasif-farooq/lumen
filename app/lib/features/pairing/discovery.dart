@@ -1,5 +1,9 @@
 import 'package:multicast_dns/multicast_dns.dart';
 
+import '../../core/logging/log.dart';
+
+const _log = Log('pairing');
+
 /// A laptop found on this Wi-Fi.
 class Found {
   final String name, address;
@@ -20,8 +24,9 @@ Future<List<Found>> discover({Duration timeout = const Duration(seconds: 4)}) as
         }
       }
     }
-  } catch (_) {
+  } on Object catch (e) {
     // Discovery is best effort; the user can type the address.
+    _log.info('discovery stopped: $e');
   } finally {
     client.stop();
   }

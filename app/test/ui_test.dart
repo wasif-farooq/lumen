@@ -1,7 +1,6 @@
 // Renders the real screens against recorded API responses (test/fixtures) and
 // saves screenshots: flutter test --update-goldens
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,7 +17,7 @@ import 'package:lumen_app/shared/theme.dart';
 import 'package:lumen_app/shared/widgets/zoom.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-String fixture(String name) => File('test/fixtures/$name.json').readAsStringSync();
+import 'helpers.dart';
 
 Api fakeApi() => Api('http://laptop', client: MockClient((req) async {
       final p = req.url.path;
@@ -36,29 +35,12 @@ Api fakeApi() => Api('http://laptop', client: MockClient((req) async {
       return http.Response.bytes(utf8.encode(body), 200, headers: {'content-type': 'application/json'});
     }));
 
-Future<void> loadFonts() async {
-  Future<void> family(String name, List<String> files) async {
-    final loader = FontLoader(name);
-    for (final f in files) {
-      loader.addFont(Future.value(ByteData.sublistView(File('assets/fonts/$f').readAsBytesSync())));
-    }
-    await loader.load();
-  }
-
-  await family(sans, ['IBMPlexSans-Regular.ttf', 'IBMPlexSans-Medium.ttf', 'IBMPlexSans-SemiBold.ttf']);
-  await family(mono, ['IBMPlexMono-Regular.ttf', 'IBMPlexMono-Medium.ttf']);
-  final icons = FontLoader('MaterialIcons')
-    ..addFont(Future.value(ByteData.sublistView(
-        File('${Platform.environment['FLUTTER_ROOT']}/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf').readAsBytesSync())));
-  await icons.load();
-}
-
 Future<AppState> stateWith(String eventsFixture) async {
   final s = AppState(fakeApi());
   await s.connect();
   final chats = s.chats;
   s.chatId = chats.isNotEmpty ? chats.first.id : 'c';
-  s.events = [for (final e in jsonDecode(fixture(eventsFixture)) as List) ChatEvent(e['type'], Map<String, dynamic>.from(e))];
+  s.events = [for (final e in jsonDecode(fixture(eventsFixture)) as List) ChatEvent.fromJson(Map<String, dynamic>.from(e as Map))];
   final results = s.events.where((e) => e.type == 'results').toList();
   s.selected = results.isEmpty ? null : results.last.hits.first;
   return s;
@@ -115,7 +97,7 @@ void main() {
             {'id': 'openai/gpt-mini', 'size': null, 'vision': null},
           ]),
         '/api/roles' => '{}',
-        '/api/models/check' => jsonEncode(jsonDecode(req.body)['model'] == 'openai/gpt-mini'
+        '/api/models/check' => jsonEncode((jsonDecode(req.body) as Map)['model'] == 'openai/gpt-mini'
             ? {'ok': true, 'seconds': 2.1, 'checks': [
                 {'name': 'Answers', 'ok': true, 'detail': 'The model replied.'},
                 {'name': 'Calls tools', 'ok': true, 'detail': 'Asked to search: called search_files'},

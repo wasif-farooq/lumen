@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
@@ -20,7 +22,7 @@ class _MobileHomeState extends State<MobileHome> {
   @override
   void initState() {
     super.initState();
-    _restore();
+    unawaited(_restore());
   }
 
   Future<void> _restore() async {

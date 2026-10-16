@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -5,7 +7,10 @@ import '../../core/app_state.dart';
 import '../../shared/theme.dart';
 import '../../shared/widgets/common.dart';
 import '../chat/results.dart';
+import '../chat/video_card.dart';
+import 'file_details_parts.dart';
 import '../../core/format.dart';
+import '../../core/errors/run_guarded.dart';
 
 /// Right-hand panel (desktop) / sheet body (mobile): preview, details, transcript, actions.
 class FileDetails extends StatefulWidget {
@@ -57,14 +62,9 @@ class _FileDetailsState extends State<FileDetails> {
       ),
     );
     if (ok != true || !mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await widget.api.excludePath(hit.path);
-      messenger.showSnackBar(SnackBar(content: Text('${hit.name} removed from the index')));
-      widget.onClose?.call();
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('$e')));
-    }
+    final removed = await runGuarded(context, () => widget.api.excludePath(hit.path),
+        failure: 'Could not remove ${hit.name}', success: (_) => '${hit.name} removed from the index');
+    if (removed != null) widget.onClose?.call();
   }
 
   @override
@@ -87,7 +87,7 @@ class _FileDetailsState extends State<FileDetails> {
               ]),
             if (!media || widget.mobile) ...[
               const SizedBox(height: 8),
-              _Thumb(api: widget.api, hit: hit),
+              PreviewThumb(api: widget.api, hit: hit),
               const SizedBox(height: 16),
             ],
             Text(hit.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
@@ -110,10 +110,10 @@ class _FileDetailsState extends State<FileDetails> {
             const SizedBox(height: 16),
             if (media && info != null && info.segments.isNotEmpty && !widget.mobile) ...[
               for (final seg in info.segments.take(14))
-                _SegmentRow(seg: seg, current: at != null && (seg.start - at).abs() < 0.5, onTap: () => widget.onOpen(hit, start: seg.start)),
+                SegmentRow(seg: seg, current: at != null && (seg.start - at).abs() < 0.5, onTap: () => widget.onOpen(hit, start: seg.start)),
               const Divider(height: 28),
             ],
-            _Meta(hit: hit, info: info),
+            FileMeta(hit: hit, info: info),
             if (info != null && info.caption.isNotEmpty) ...[
               const SizedBox(height: 16),
               Text(media ? 'What it shows' : 'What the picture shows', style: const TextStyle(fontSize: 13, color: C.muted)),
@@ -147,7 +147,7 @@ class _FileDetailsState extends State<FileDetails> {
               const SizedBox(height: 8),
               TextButton.icon(
                 onPressed: () {
-                  Clipboard.setData(ClipboardData(text: hit.path));
+                  unawaited(Clipboard.setData(ClipboardData(text: hit.path)));
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Path copied')));
                 },
                 icon: const Icon(Icons.copy, size: 14),
@@ -164,78 +164,5 @@ class _FileDetailsState extends State<FileDetails> {
         );
       },
     );
-  }
-}
-
-class _Thumb extends StatelessWidget {
-  const _Thumb({required this.api, required this.hit});
-  final Api api;
-  final Hit hit;
-
-  @override
-  Widget build(BuildContext context) {
-    final previewable = const {'pdf', 'image', 'video'}.contains(hit.kind);
-    return Container(
-      height: 240,
-      decoration: BoxDecoration(color: const Color(0xFF1B1F24), borderRadius: BorderRadius.circular(12), border: Border.all(color: C.line)),
-      clipBehavior: Clip.antiAlias,
-      alignment: Alignment.center,
-      child: previewable
-          ? Padding(
-              padding: EdgeInsets.all(hit.kind == 'pdf' ? 14 : 0),
-              child: ApiImage(api: api, path: hit.path, w: 640, t: hit.at, fit: hit.kind == 'pdf' ? BoxFit.contain : BoxFit.cover),
-            )
-          : FileBadge(kind: hit.kind, ext: hit.ext, width: 64, height: 76),
-    );
-  }
-}
-
-class _SegmentRow extends StatelessWidget {
-  const _SegmentRow({required this.seg, required this.current, required this.onTap});
-  final Segment seg;
-  final bool current;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Material(
-        color: current ? const Color(0xFF2A2419) : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              SizedBox(width: 52, child: Text(seg.time, style: monoStyle(color: current ? C.accent : C.muted))),
-              Expanded(child: Text(seg.text, style: TextStyle(fontSize: 13, color: current ? C.text : C.text2))),
-            ]),
-          ),
-        ),
-      );
-}
-
-class _Meta extends StatelessWidget {
-  const _Meta({required this.hit, required this.info});
-  final Hit hit;
-  final FileInfo? info;
-
-  @override
-  Widget build(BuildContext context) {
-    final rows = <(String, String)>[
-      ('Type', switch (hit.kind) { 'pdf' => 'PDF document', 'image' => 'Image', 'video' => 'Video', 'audio' => 'Audio', 'doc' => 'Document', 'sheet' => 'Spreadsheet', _ => hit.ext.toUpperCase() }),
-      ('Size', humanSize(hit.size)),
-      if (hit.duration != null) ('Length', clock(hit.duration!)) else ('Modified', humanDate(hit.mtime)),
-      ('Search', info == null ? '…' : (info!.searchable ? 'Contents' : 'Name only')),
-    ];
-    return Wrap(runSpacing: 12, children: [
-      for (final (k, v) in rows)
-        FractionallySizedBox(
-          widthFactor: 0.5,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(k, style: const TextStyle(fontSize: 13, color: C.muted)),
-            Text(v, style: const TextStyle(fontSize: 13)),
-          ]),
-        ),
-    ]);
   }
 }

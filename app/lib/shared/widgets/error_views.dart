@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -14,7 +16,7 @@ void showErrorSnack(ScaffoldMessengerState messenger, NavigatorState navigator, 
     action: more
         ? SnackBarAction(
             label: 'Details',
-            onPressed: () => showDialog<void>(context: navigator.context, builder: (_) => ErrorDetailsDialog(error: error)),
+            onPressed: () => unawaited(navigator.push(DialogRoute<void>(context: navigator.context, builder: (_) => ErrorDetailsDialog(error: error)))),
           )
         : null,
   ));
