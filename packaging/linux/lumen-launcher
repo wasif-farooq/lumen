@@ -1,0 +1,40 @@
+#!/bin/sh
+# Starts Lumen from a package (.deb in /opt/lumen, or the AppImage's AppRun):
+# the bundled server, unless one already answers on the port, then the desktop app.
+# The server started here is stopped again when the app closes.
+BASE="$(dirname "$(readlink -f "$0")")"
+PY="$BASE/server/python/bin/python3"
+PORT="${LUMEN_PORT:-8765}"
+LOG="${XDG_STATE_HOME:-$HOME/.local/state}/lumen/server.log"
+mkdir -p "$(dirname "$LOG")"
+
+# The bundled Python must not pick up packages or settings from the user's own Python
+export PYTHONNOUSERSITE=1
+unset PYTHONHOME PYTHONPATH
+
+running() {
+    "$PY" -c "import socket; socket.create_connection(('127.0.0.1', $PORT), 0.5)" 2>/dev/null
+}
+
+SERVER=""
+if ! running; then
+    "$PY" -m lumen serve --port "$PORT" >"$LOG" 2>&1 &
+    SERVER=$!
+    export LUMEN_SERVER_STARTING=1
+fi
+export LUMEN_SERVER_LOG="$LOG"
+export LUMEN_URL="http://127.0.0.1:$PORT"
+
+stop() {
+    if [ -n "$SERVER" ]; then
+        kill -TERM "$SERVER" 2>/dev/null
+        wait "$SERVER" 2>/dev/null
+        SERVER=""
+    fi
+}
+trap 'stop; exit 130' INT TERM HUP
+
+"$BASE/app/lumen" "$@"
+status=$?
+stop
+exit $status

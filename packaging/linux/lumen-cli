@@ -1,0 +1,5 @@
+#!/bin/sh
+# The `lumen` command from the .deb: index, search, ask, chat, serve (see `lumen --help`).
+export PYTHONNOUSERSITE=1
+unset PYTHONHOME PYTHONPATH
+exec /opt/lumen/server/python/bin/python3 -m lumen "$@"

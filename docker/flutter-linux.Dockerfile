@@ -3,7 +3,7 @@
 FROM ubuntu:24.04
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        git curl unzip xz-utils ca-certificates \
+        git curl unzip xz-utils ca-certificates file \
         clang g++ cmake ninja-build pkg-config libgtk-3-dev liblzma-dev \
     && rm -rf /var/lib/apt/lists/*
 
@@ -14,10 +14,14 @@ RUN git clone --depth 1 -b ${FLUTTER_VERSION} https://github.com/flutter/flutter
 # ubuntu = uid 1000, so files written to the mounted output folder belong to the host user
 USER ubuntu
 ENV PATH=/opt/flutter/bin:$PATH PUB_CACHE=/home/ubuntu/.pub-cache
+RUN mkdir -p /home/ubuntu/.cache/uv
 RUN flutter config --no-analytics --no-cli-animations \
     && flutter precache --linux --no-android --no-ios --no-web \
     && flutter --version
 
+# uv: the packages bundle a self-contained Python with the server (docker/package-linux.sh)
+COPY --from=ghcr.io/astral-sh/uv:0.11.26 /uv /usr/local/bin/uv
 COPY --chown=ubuntu:ubuntu docker/build-linux.sh /usr/local/bin/build-linux
+COPY --chown=ubuntu:ubuntu docker/package-linux.sh /usr/local/bin/package-linux
 WORKDIR /work
 ENTRYPOINT ["build-linux"]

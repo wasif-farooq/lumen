@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Lumen
+GenericName=File assistant
+Comment=Find, open and ask about your documents, photos and videos with a local AI
+Exec=lumen-app
+Icon=lumen
+Terminal=false
+Categories=Utility;FileTools;
+Keywords=search;files;documents;photos;video;AI;assistant;
+StartupWMClass=lumen

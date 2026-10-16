@@ -682,6 +682,13 @@ class Indexer:
 _indexer = Indexer()
 
 
+@app.on_event("shutdown")
+def _stop_indexing_on_exit():
+    # The indexer runs in its own process group: end it with the server, so nothing keeps
+    # running from an app bundle (e.g. an AppImage) after the app is closed.
+    _indexer.stop()
+
+
 @app.post("/api/index")
 def run_index(_=Depends(auth)):
     _indexer.start()

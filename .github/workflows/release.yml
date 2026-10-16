@@ -1,0 +1,58 @@
+# Builds the Linux packages (.deb and AppImage) and publishes them as a GitHub Release.
+#   Release:  git tag v0.2.0 && git push origin v0.2.0
+#   Test build without releasing: Actions → Release → Run workflow
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version for the test build (default: the one in pyproject.toml)"
+        required: false
+
+permissions:
+  contents: write # create the release and upload its files
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build .deb and AppImage (same Docker build as locally)
+        env:
+          LUMEN_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
+        run: |
+          mkdir -p app/dist/packages
+          chmod 777 app/dist/packages   # the build container runs as uid 1000
+          docker compose --profile build run --rm package
+
+      - name: Checksums
+        working-directory: app/dist/packages
+        run: sha256sum *.deb *.AppImage | tee SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lumen-linux-packages
+          path: app/dist/packages/
+          retention-days: 14
+
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" app/dist/packages/*.deb app/dist/packages/*.AppImage app/dist/packages/SHA256SUMS \
+            --title "Lumen $GITHUB_REF_NAME" \
+            --generate-notes \
+            --notes "Install the .deb: \`sudo apt install ./lumen_*_amd64.deb\`, then open Lumen from the app menu.
+          Or run the AppImage: \`chmod +x Lumen-*.AppImage && ./Lumen-*.AppImage\`.
+          Lumen uses Ollama for its models: install it from https://ollama.com and run \`ollama pull qwen3.5:2b\`.
+          Built on Ubuntu 24.04; needs a distribution of that age or newer."

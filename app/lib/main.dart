@@ -39,6 +39,11 @@ class _DesktopHomeState extends State<DesktopHome> {
   bool? connected;
   bool starting = false;
 
+  // Set by the packaged launcher (.deb / AppImage), which starts the bundled server itself
+  static final _launcherStarting = Platform.environment['LUMEN_SERVER_STARTING'] == '1';
+  static final _serverLog = Platform.environment['LUMEN_SERVER_LOG'];
+  bool get _packaged => _serverLog != null;
+
   String get projectDir =>
       Platform.environment['LUMEN_HOME'] ?? Platform.environment['OS_OPERATOR_HOME'] ?? '${Platform.environment['HOME']}/work/personal/os-operator';
 
@@ -49,7 +54,12 @@ class _DesktopHomeState extends State<DesktopHome> {
   }
 
   Future<void> _connect() async {
-    final ok = await state.connect();
+    var ok = await state.connect();
+    // The launcher just started the server: it needs a few seconds to load before it answers
+    for (var i = 0; !ok && _launcherStarting && connected == null && i < 90 && mounted; i++) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      ok = await state.connect();
+    }
     if (mounted) setState(() => connected = ok);
   }
 
@@ -90,8 +100,23 @@ class _DesktopHomeState extends State<DesktopHome> {
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: connected == null
-                ? const CircularProgressIndicator(color: C.accent)
-                : Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                ? const Column(mainAxisSize: MainAxisSize.min, children: [
+                    CircularProgressIndicator(color: C.accent),
+                    SizedBox(height: 16),
+                    Text('Starting Lumen…', style: TextStyle(color: C.text3)),
+                  ])
+                : _packaged
+                    ? Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Logo(size: 40),
+                        const SizedBox(height: 18),
+                        const Text('Lumen’s background service didn’t start', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 8),
+                        Text('Its log may say why:\n$_serverLog\n\nClosing and reopening Lumen starts it again.',
+                            style: monoStyle(size: 13, color: C.text2)),
+                        const SizedBox(height: 24),
+                        OutlinedButton(onPressed: _connect, child: const Text('Try again')),
+                      ])
+                    : Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                     const Logo(size: 40),
                     const SizedBox(height: 18),
                     const Text('The Lumen service isn’t running', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
