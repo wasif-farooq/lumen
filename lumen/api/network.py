@@ -1,6 +1,10 @@
 """This laptop on the local network: its address, and announcing the server so phones find it."""
 
 import socket
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from zeroconf import Zeroconf
 
 
 def lan_ip() -> str:
@@ -14,7 +18,7 @@ def lan_ip() -> str:
         s.close()
 
 
-def advertise(port: int):
+def advertise(port: int) -> "Zeroconf":
     """Announce the server on the LAN (mDNS) so the phone app can find it. Close the result to stop."""
     from zeroconf import ServiceInfo, Zeroconf
 

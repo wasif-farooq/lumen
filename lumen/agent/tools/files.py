@@ -7,9 +7,10 @@ from langchain_core.tools import tool
 from ...core.filetypes import MEDIA_EXTS, RUNNABLE_EXTS
 from ...core.settings import settings
 from ...fileops.access import allowed, launch
+from .context import ToolContext
 
 
-def build(ctx) -> dict:
+def build(ctx: ToolContext) -> dict:
     emit, resolve = ctx.emit, ctx.resolve
 
     @tool

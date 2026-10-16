@@ -11,10 +11,11 @@ import argparse
 import logging
 import sys
 
+from ..core.limits import DEFAULT_PORT
 from . import chat, index, search, serve
 
 
-def main(argv=None):
+def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(prog="lumen")
     sub = p.add_subparsers(dest="cmd", required=True)
     ip = sub.add_parser("index")
@@ -38,7 +39,7 @@ def main(argv=None):
     sub.add_parser("chat").set_defaults(fn=chat.chat)
     sv = sub.add_parser("serve", help="API server for the desktop/mobile app")
     sv.add_argument("--lan", action="store_true", help="also accept paired phones on the local network")
-    sv.add_argument("--port", type=int, default=8765)
+    sv.add_argument("--port", type=int, default=DEFAULT_PORT)
     sv.set_defaults(fn=serve.run)
     a = p.parse_args(argv)
     from ..core import errors

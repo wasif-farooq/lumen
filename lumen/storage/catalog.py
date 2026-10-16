@@ -2,19 +2,20 @@
 Nothing here touches the files themselves."""
 
 import os
+import sqlite3
 from pathlib import Path
 
 from ..core.settings import settings
 from .db import connect
 
 
-def drop_segments(conn, file_id: int):
+def drop_segments(conn: sqlite3.Connection, file_id: int) -> None:
     """A file's timestamped transcript lines."""
     conn.execute("DELETE FROM segments_fts WHERE rowid IN (SELECT id FROM segments WHERE file_id=?)", (file_id,))
     conn.execute("DELETE FROM segments WHERE file_id=?", (file_id,))
 
 
-def drop_derived(conn, file_id: int):
+def drop_derived(conn: sqlite3.Connection, file_id: int) -> None:
     """Everything derived from a file's contents: transcript lines and document passages."""
     from ..search import passages
 
@@ -22,7 +23,7 @@ def drop_derived(conn, file_id: int):
     passages.drop_file(conn, file_id)
 
 
-def delete_file(conn, file_id: int):
+def delete_file(conn: sqlite3.Connection, file_id: int) -> None:
     """Drop one file and everything derived from it from the index."""
     conn.execute("DELETE FROM files WHERE id=?", (file_id,))
     conn.execute("DELETE FROM files_fts WHERE rowid=?", (file_id,))

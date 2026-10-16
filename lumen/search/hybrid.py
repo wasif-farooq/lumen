@@ -1,11 +1,13 @@
 """Images matching a description: what they look like (CLIP) fused with their AI description."""
 
+import sqlite3
+
 from ..core.filetypes import IMAGE_EXTS
 from . import images
 from . import text as text_search
 
 
-def image_hits(conn, scored: list[tuple[dict, float]]) -> list[dict]:
+def image_hits(conn: sqlite3.Connection, scored: list[tuple[dict, float]]) -> list[dict]:
     """Result-card dicts for visual matches, with each image's AI description as the snippet."""
     out = []
     for r, score in scored:
@@ -17,7 +19,7 @@ def image_hits(conn, scored: list[tuple[dict, float]]) -> list[dict]:
     return out
 
 
-def hybrid_image_search(conn, description: str, limit: int = 8, folder: str = "") -> list[dict]:
+def hybrid_image_search(conn: sqlite3.Connection, description: str, limit: int = 8, folder: str = "") -> list[dict]:
     """Images matching a description: what they look like (CLIP) fused with their AI description (text)."""
     by_look = images.search_text(conn, description, k=limit * 2, folder=folder)
     by_text = text_search.search(description, ext=",".join(sorted(IMAGE_EXTS)), folder=folder, limit=limit * 2)

@@ -1,5 +1,6 @@
 """`lumen index`: build or refresh the index."""
 
+import argparse
 import os
 
 from ..core.settings import settings
@@ -10,14 +11,14 @@ from .console import console
 class ConsoleProgress(Progress):
     """An index run as people read it in the terminal."""
 
-    def scanned(self, count):
+    def scanned(self, count: int) -> None:
         console.print(f"  scanned {count:,} …", style="dim")
 
-    def item(self, done, total, path, note):
+    def item(self, done: int, total: int, path: str, note: str) -> None:
         console.print(f"  [{done}/{total}] {path}\n      {note[:160]}", style="dim", highlight=False, markup=False)
 
 
-def run(a):
+def run(a: argparse.Namespace) -> None:
     from ..indexing import power
     from ..indexing.pipeline import build_index
 

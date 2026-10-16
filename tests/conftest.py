@@ -389,3 +389,13 @@ def raise_error(kind: str, message: str, hint: str = ""):
 def index_file() -> Path:
     """Where the search index is kept (one SQLite file in the data folder)."""
     return settings.db_path
+
+
+@pytest.fixture
+def provider_models(env, monkeypatch):
+    """Set what a provider lists as its models (no server needed)."""
+
+    def use(models: list[dict]):
+        monkeypatch.setattr(backends, "list_models", lambda pid: models)
+
+    return use

@@ -9,10 +9,15 @@ import os
 import shutil
 from dataclasses import dataclass, field, fields
 from pathlib import Path
+from typing import overload
 
 POWER_MODES = ("auto", "saver", "performance")
 
 
+@overload
+def env(name: str) -> str | None: ...
+@overload
+def env(name: str, default: str) -> str: ...
 def env(name: str, default: str | None = None) -> str | None:
     """LUMEN_<name>, or OS_OPERATOR_<name> from before the rename."""
     return os.environ.get(f"LUMEN_{name}", os.environ.get(f"OS_OPERATOR_{name}", default))
@@ -23,8 +28,8 @@ def _flag(name: str, default: bool) -> bool:
 
 
 def default_data_dir() -> Path:
-    if env("DATA"):
-        return Path(env("DATA")).expanduser()
+    if data := env("DATA"):
+        return Path(data).expanduser()
     new, old = Path("~/.local/share/lumen").expanduser(), Path("~/.local/share/os-operator").expanduser()
     return old if old.is_dir() and not new.exists() else new  # keep an index made before the rename
 
@@ -67,18 +72,18 @@ class Settings:
     # "xdg" opens files on the desktop; "print" only reports (Docker has no desktop)
     open_mode: str = field(default_factory=lambda: env("OPEN_MODE") or ("xdg" if shutil.which("xdg-open") else "print"))
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.caption_model = self.caption_model or env("CAPTION_MODEL", self.agent_model)
 
     @property
     def db_path(self) -> Path:
         return self.data_dir / "index.db"
 
-    def ollama_options(self, **opts) -> dict:
+    def ollama_options(self, **opts: object) -> dict:
         """Options for every Ollama call; num_gpu=0 keeps all model layers on the CPU."""
         return {**opts, "num_gpu": 0} if self.cpu_only else opts
 
-    def update(self, **changes):
+    def update(self, **changes: object) -> None:
         """Change settings by name, keeping values valid."""
         unknown = set(changes) - {f.name for f in fields(self)}
         if unknown:

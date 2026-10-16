@@ -3,6 +3,7 @@ make passages of any new text. Unchanged files are skipped, so running again onl
 
 import json
 import logging
+import sqlite3
 import time
 from contextlib import nullcontext
 from pathlib import Path
@@ -50,7 +51,7 @@ def build_index(
     return stats
 
 
-def _ai_passes(conn, passes: list[IndexPass], progress: Progress, stats: dict):
+def _ai_passes(conn: sqlite3.Connection, passes: list[IndexPass], progress: Progress, stats: dict) -> None:
     # The vision model (GPU) and whisper (CPU) are the expensive part: skipped on battery in auto mode
     allowed, why = power.heavy_allowed()
     if not allowed:

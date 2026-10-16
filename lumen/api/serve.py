@@ -3,6 +3,7 @@
 import logging
 
 from ..core import logging as lumen_logging
+from ..core.limits import DEFAULT_PORT
 from ..core.settings import settings
 from .app import create_app
 from .network import advertise, lan_ip
@@ -10,7 +11,7 @@ from .network import advertise, lan_ip
 log = logging.getLogger("lumen.serve")
 
 
-def run(lan: bool = False, port: int = 8765):
+def run(lan: bool = False, port: int = DEFAULT_PORT) -> None:
     import uvicorn
 
     path = lumen_logging.setup("server", console=True)

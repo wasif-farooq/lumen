@@ -29,7 +29,7 @@ def pull(model: str) -> dict:
         "error": None,
     }
 
-    def run():
+    def run() -> None:
         import ollama
 
         try:

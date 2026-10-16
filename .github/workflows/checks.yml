@@ -29,6 +29,8 @@ jobs:
         run: uv run ruff check lumen tests scripts
       - name: Format
         run: uv run ruff format --check lumen tests scripts
+      - name: Types
+        run: uv run pyright
       - name: Tests
         run: uv run pytest -p no:warnings
 

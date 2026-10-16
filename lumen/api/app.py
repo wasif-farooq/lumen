@@ -4,20 +4,22 @@ Requests from this machine need no token. Phones pair with a 6-digit code shown 
 app and then send `Authorization: Bearer <token>`.
 """
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from ..core.limits import DEFAULT_PORT
 from . import errors
 from .routes import chats, files, images, indexing, pairing, providers, status
 from .services import Services
 
 
-def create_app(lan: bool = False, port: int = 8765) -> FastAPI:
+def create_app(lan: bool = False, port: int = DEFAULT_PORT) -> FastAPI:
     svc = Services(lan=lan, port=port)
 
     @asynccontextmanager
-    async def lifespan(app: FastAPI):
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
         # The indexer runs in its own process group: end it with the server, so nothing keeps
         # running from an app bundle (e.g. an AppImage) after the app is closed.

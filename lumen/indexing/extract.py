@@ -1,6 +1,7 @@
 """Pull plain text out of files so it can be full-text indexed."""
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
 
 from ..core import limits
@@ -22,7 +23,7 @@ def extract_text(path: Path, ext: str, size: int) -> str:
         return ""
 
 
-def extractor_for(ext: str):
+def extractor_for(ext: str) -> Callable[[Path], str] | None:
     """The function that reads a file type's text (Strategy), or None for types without text."""
     return EXTRACTORS.get(ext) or (_plain if ext in TEXT_EXTS else None)
 

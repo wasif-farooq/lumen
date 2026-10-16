@@ -9,9 +9,15 @@ from ...indexing.extract import extract_text
 from ...search import passages
 from ...search import text as text_search
 from ...storage import catalog, db
+from .context import ToolContext
+
+MAX_RESULTS = 20  # search_files: at most this many, whatever the model asks for
+READ_MIN_CHARS, READ_MAX_CHARS = 2000, 6000  # read_file: how much text the model may ask for
+PASSAGE_RESULTS = 6  # find_in_files: passages returned
+CARD_SNIPPET_CHARS = 220  # the passage text shown on a result card
 
 
-def build(ctx) -> dict:
+def build(ctx: ToolContext) -> dict:
     last_results, emit, resolve, app = ctx.last_results, ctx.emit, ctx.resolve, ctx.app
 
     @tool
@@ -38,9 +44,8 @@ def build(ctx) -> dict:
             min_minutes: ONLY if the user asks about length ("longer than 30 minutes"); otherwise leave 0.
             max_minutes: ONLY if the user asks about length ("shorter than 5 minutes"); otherwise leave 0.
         """
-        hits = text_search.search(
-            query, ext, modified_after, modified_before, folder, min(max(limit, 1), 20), min_minutes, max_minutes
-        )
+        limit = min(max(limit, 1), MAX_RESULTS)
+        hits = text_search.search(query, ext, modified_after, modified_before, folder, limit, min_minutes, max_minutes)
         last_results[:] = [h.path for h in hits]
         emit({"type": "results", "hits": [h.to_dict() for h in hits]})
         if not hits:
@@ -71,7 +76,8 @@ def build(ctx) -> dict:
         """
         path = resolve(target)
         ext = path.suffix.lower().lstrip(".")
-        budget = min(max(max_chars, 2000), 6000)  # small models sometimes ask for 500 chars and miss the answer
+        # Small models sometimes ask for 500 characters and miss the answer
+        budget = min(max(max_chars, READ_MIN_CHARS), READ_MAX_CHARS)
         text = extract_text(path, ext, path.stat().st_size)
         what = ""
         if not text.strip():
@@ -125,7 +131,7 @@ def build(ctx) -> dict:
         conn = db.connect()
         try:
             found = passages.search(
-                conn, question, limit=6, folder=folder, ext=ext, relevance_sql=text_search.RELEVANCE_SQL
+                conn, question, limit=PASSAGE_RESULTS, folder=folder, ext=ext, relevance_sql=text_search.RELEVANCE_SQL
             )
         finally:
             conn.close()
@@ -146,7 +152,7 @@ def build(ctx) -> dict:
                         r["ext"],
                         r["size"],
                         r["mtime"],
-                        " ".join(r["text"].split())[:220],
+                        " ".join(r["text"].split())[:CARD_SNIPPET_CHARS],
                         r["duration"],
                     ).to_dict()
                     for r in best.values()

@@ -14,6 +14,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from ..core import errors
 from ..core.logging import request_id
@@ -21,7 +22,7 @@ from ..core.logging import request_id
 log = logging.getLogger("lumen.api")
 
 
-def body(code: str, message: str, hint: str = "", rid: str = "", detail=None) -> dict:
+def body(code: str, message: str, hint: str = "", rid: str = "", detail: object = None) -> dict:
     return {
         "detail": message if detail is None else detail,
         "error": {"code": code, "message": message, "hint": hint, "id": rid},
@@ -32,14 +33,14 @@ def _rid(request: Request) -> str:
     return request.scope.get("lumen.request_id", "")
 
 
-def install(app: FastAPI):
+def install(app: FastAPI) -> None:
     @app.exception_handler(errors.LumenError)
-    async def lumen_error(request: Request, e: errors.LumenError):
+    async def lumen_error(request: Request, e: errors.LumenError) -> JSONResponse:
         log.info("%s %s -> %s %s: %s", request.method, request.url.path, e.status, e.code, e.message)
         return JSONResponse(body(e.code, e.message, e.hint, _rid(request)), status_code=e.status)
 
     @app.exception_handler(StarletteHTTPException)
-    async def http_error(request: Request, e: StarletteHTTPException):
+    async def http_error(request: Request, e: StarletteHTTPException) -> JSONResponse:
         message = e.detail if isinstance(e.detail, str) else json.dumps(e.detail)
         return JSONResponse(
             body(errors.CODES.get(e.status_code, "error"), message, rid=_rid(request)),
@@ -48,7 +49,7 @@ def install(app: FastAPI):
         )
 
     @app.exception_handler(RequestValidationError)
-    async def invalid(request: Request, e: RequestValidationError):
+    async def invalid(request: Request, e: RequestValidationError) -> JSONResponse:
         problems = e.errors()
         first = problems[0] if problems else {}
         where = ".".join(str(x) for x in first.get("loc", ()) if x != "body")
@@ -63,10 +64,10 @@ class RequestIds:
     """Give each request an id (X-Request-ID), log it, and turn crashes into a JSON 500.
     Plain ASGI rather than BaseHTTPMiddleware, so streamed chat answers pass straight through."""
 
-    def __init__(self, app):
+    def __init__(self, app: ASGIApp) -> None:
         self.app = app
 
-    async def __call__(self, scope, receive, send):
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
         rid = uuid.uuid4().hex[:8]
@@ -74,7 +75,7 @@ class RequestIds:
         token = request_id.set(rid)
         started, status = time.monotonic(), {"code": 0}
 
-        async def send_with_id(message):
+        async def send_with_id(message: Message) -> None:
             if message["type"] == "http.response.start":
                 status["code"] = message["status"]
                 message.setdefault("headers", [])

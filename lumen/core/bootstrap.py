@@ -1,7 +1,7 @@
 """Load what was saved in the data folder, once, before the server or a command runs."""
 
 
-def load_saved_state():
+def load_saved_state() -> None:
     from ..providers import registry
     from . import preferences
 

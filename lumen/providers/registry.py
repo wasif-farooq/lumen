@@ -10,10 +10,11 @@ so it is kept apart from settings.json, which the API hands out.
 
 import ipaddress
 import json
-import os
 import re
+from pathlib import Path
 from urllib.parse import urlparse
 
+from ..core import private_files
 from ..core.settings import settings
 
 ROLES = ("agent", "vision")
@@ -21,7 +22,7 @@ SPEECH_MODELS = ["tiny", "base", "small", "medium", "large-v3"]
 KINDS = ("ollama", "openai")
 
 
-def _file():
+def _file() -> Path:
     return settings.data_dir / "providers.json"
 
 
@@ -32,7 +33,7 @@ def defaults() -> dict:
 settings.update(providers=defaults())
 
 
-def load():
+def load() -> None:
     """Apply saved providers and role choices (called with settings.load)."""
     try:
         saved = json.loads(_file().read_text())
@@ -54,14 +55,8 @@ def load():
 _ROLE_ATTRS = {"agent": ("agent_provider", "agent_model"), "vision": ("vision_provider", "caption_model")}
 
 
-def _save():
-    settings.data_dir.mkdir(parents=True, exist_ok=True)
-    f = _file()
-    data = {"providers": list(settings.providers.values()), "roles": roles()}
-    fd = os.open(f, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w") as out:
-        json.dump(data, out, indent=1)
-    os.chmod(f, 0o600)
+def _save() -> None:
+    private_files.write_json(_file(), {"providers": list(settings.providers.values()), "roles": roles()})
 
 
 def roles() -> dict:
@@ -114,7 +109,7 @@ def upsert(data: dict) -> dict:
     url = (data.get("base_url") or "").strip().rstrip("/")
     if not re.match(r"^https?://[^/\s]+", url):
         raise ValueError("Address must start with http:// or https://")
-    name = (data.get("name") or "").strip() or urlparse(url).hostname
+    name = (data.get("name") or "").strip() or urlparse(url).hostname or "provider"
     pid = data.get("id")
     if pid:
         p = dict(get(pid))
@@ -138,7 +133,7 @@ def upsert(data: dict) -> dict:
     return p
 
 
-def remove(pid: str):
+def remove(pid: str) -> None:
     p = get(pid)
     if pid == "ollama":
         raise ValueError("Ollama is built in; change its address instead")

@@ -1,6 +1,7 @@
 """Describe images and scanned PDFs with a local vision model so they become searchable."""
 
 import logging
+import sqlite3
 import time
 
 import pymupdf
@@ -9,6 +10,7 @@ from ...core import limits
 from ...core.filetypes import IMAGE_EXTS
 from ...providers import backends
 from .. import power
+from ..progress import ItemReport
 
 log = logging.getLogger(__name__)
 
@@ -54,7 +56,7 @@ def _render(path: str) -> bytes:
         return buf.getvalue()
 
 
-def caption_pending(conn, progress=None) -> dict:
+def caption_pending(conn: sqlite3.Connection, progress: ItemReport | None = None) -> dict:
     """Caption every image/scan that has no caption yet. Returns stats.
 
     caption IS NULL means "not done yet"; "" means "skipped or failed" so it isn't retried

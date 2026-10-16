@@ -1,6 +1,8 @@
 """The AI passes that run after the scan (Strategy): each one says whether it should run and
 then runs, reporting each file to the run's Progress. The pipeline doesn't know their details."""
 
+import sqlite3
+
 from ...core.settings import settings
 from ..progress import Progress
 
@@ -11,7 +13,7 @@ class IndexPass:
     def wanted(self) -> bool:
         raise NotImplementedError
 
-    def run(self, conn, progress: Progress) -> dict:
+    def run(self, conn: sqlite3.Connection, progress: Progress) -> dict:
         raise NotImplementedError
 
 
@@ -24,13 +26,13 @@ class Captions(IndexPass):
 
     name = "captions"
 
-    def __init__(self, enabled: bool | None = None):
+    def __init__(self, enabled: bool | None = None) -> None:
         self.enabled = enabled
 
     def wanted(self) -> bool:
         return settings.captions if self.enabled is None else self.enabled
 
-    def run(self, conn, progress):
+    def run(self, conn: sqlite3.Connection, progress: Progress) -> dict:
         from .captions import caption_pending
 
         try:
@@ -47,7 +49,7 @@ class Visual(IndexPass):
     def wanted(self) -> bool:
         return settings.visual
 
-    def run(self, conn, progress):
+    def run(self, conn: sqlite3.Connection, progress: Progress) -> dict:
         from .visual import process_pending
 
         return process_pending(conn, progress.item)
@@ -58,14 +60,14 @@ class Media(IndexPass):
 
     name = "media"
 
-    def __init__(self, enabled: bool | None = None, transcripts: bool | None = None):
+    def __init__(self, enabled: bool | None = None, transcripts: bool | None = None) -> None:
         self.enabled = enabled
         self.transcripts = transcripts
 
     def wanted(self) -> bool:
         return settings.media if self.enabled is None else self.enabled
 
-    def run(self, conn, progress):
+    def run(self, conn: sqlite3.Connection, progress: Progress) -> dict:
         from .media import process_pending
 
         transcripts = settings.transcripts if self.transcripts is None else self.transcripts

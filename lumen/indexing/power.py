@@ -62,7 +62,7 @@ def threads() -> int:
     return settings.threads
 
 
-def low_priority():
+def low_priority() -> None:
     """Lowest CPU priority and idle-only disk IO for this process and everything it starts."""
     with contextlib.suppress(OSError):  # not allowed here: run at normal priority
         os.nice(19 - os.nice(0))
@@ -106,11 +106,11 @@ class GpuModel:
     """Unload the vision model after indexing, but only if indexing is what loaded it
     (so an open chat keeps its warm model)."""
 
-    def __init__(self, model: str):
+    def __init__(self, model: str) -> None:
         self.model = model
         self.was_loaded = True
 
-    def __enter__(self):
+    def __enter__(self) -> "GpuModel":
         try:
             import ollama
 
@@ -120,7 +120,7 @@ class GpuModel:
             log.debug("ollama ps: %s", e)
         return self
 
-    def __exit__(self, *_exc):
+    def __exit__(self, *_exc: object) -> None:
         if self.was_loaded:
             return
         try:

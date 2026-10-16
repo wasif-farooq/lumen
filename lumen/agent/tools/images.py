@@ -5,9 +5,10 @@ from langchain_core.tools import tool
 from ...search import images
 from ...search.hybrid import hybrid_image_search, image_hits
 from ...storage import db
+from .context import ToolContext
 
 
-def build(ctx) -> dict:
+def build(ctx: ToolContext) -> dict:
     last_results, emit, resolve = ctx.last_results, ctx.emit, ctx.resolve
 
     @tool

@@ -2,6 +2,7 @@
 by looking alike. Batches of 8; skipped on battery like the other AI passes."""
 
 import logging
+import sqlite3
 import time
 
 import numpy as np
@@ -9,11 +10,12 @@ import numpy as np
 from ...core.filetypes import IMAGE_EXTS
 from ...search import images
 from .. import power
+from ..progress import ItemReport
 
 log = logging.getLogger(__name__)
 
 
-def process_pending(conn, progress=None) -> dict:
+def process_pending(conn: sqlite3.Connection, progress: ItemReport | None = None) -> dict:
     """Signature + fingerprints for every image that has none yet. Batches of 8, power-aware."""
     rows = conn.execute(
         f"SELECT id, path, size FROM files WHERE visual_done IS NULL AND ext IN ({','.join('?' * len(IMAGE_EXTS))})",

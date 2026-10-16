@@ -2,17 +2,26 @@
 
 import os
 import uuid
+from collections.abc import Iterator
+from typing import Any
 
 from langchain_core.messages import HumanMessage
+from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.types import Command
 
 from .graph import build_agent
+
+# What a turn yields: ("tool_call", (name, args)), ("ui", dict), ("approval", plan), ("answer", text)…
+AgentEvent = tuple[str, Any]
 
 
 class Session:
     """One chat: keeps conversation memory (thread) and Langfuse session together."""
 
-    def __init__(self, thread_id: str | None = None, checkpointer=None, app=False):
+    def __init__(
+        self, thread_id: str | None = None, checkpointer: BaseCheckpointSaver | None = None, app: bool = False
+    ) -> None:
         self._ui_events: list[dict] = []
         self.state: dict = {}  # tool state shared with the API (last results)
         self.graph = build_agent(checkpointer, emit=self._ui_events.append, app=app, state=self.state)
@@ -27,13 +36,13 @@ class Session:
     def tracing(self) -> bool:
         return bool(self.callbacks)
 
-    def stream(self, text: str):
+    def stream(self, text: str) -> Iterator[AgentEvent]:
         """Yield (kind, payload) events: ("tool_call", (name, args)), ("tool_result", str), ("answer", str),
         structured ("ui", dict) events from tools (search hits, opened files) for app UIs, and
         ("approval", plan) when a change waits for the user: answer it with resume()."""
         yield from self._run({"messages": [HumanMessage(text)]})
 
-    def resume(self, approved: bool):
+    def resume(self, approved: bool) -> Iterator[AgentEvent]:
         """Continue after an approval request: the waiting tool runs (or is cancelled)."""
         yield from self._run(Command(resume={"approved": approved}))
 
@@ -46,8 +55,8 @@ class Session:
                 return it.value
         return None
 
-    def _run(self, graph_input):
-        cfg = {
+    def _run(self, graph_input: dict | Command) -> Iterator[AgentEvent]:
+        cfg: RunnableConfig = {
             "configurable": {"thread_id": self.thread_id},
             "callbacks": self.callbacks,
             "recursion_limit": 16,
@@ -73,7 +82,7 @@ class Session:
                         while self._ui_events:
                             yield "ui", self._ui_events.pop(0)
 
-    def close(self):
+    def close(self) -> None:
         if self.callbacks:
             from langfuse import get_client
 

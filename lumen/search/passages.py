@@ -2,6 +2,7 @@
 are answered from the right part of the right file instead of the first page of one file."""
 
 import re
+import sqlite3
 
 CHUNK = 700  # characters per passage
 OVERLAP = 120  # repeated between neighbours so a fact split across a boundary is still found whole
@@ -68,7 +69,7 @@ def question_terms(question: str) -> list[str]:
 # ---------- index ----------
 
 
-def index_file(conn, file_id: int, text: str):
+def index_file(conn: sqlite3.Connection, file_id: int, text: str) -> None:
     drop_file(conn, file_id)
     chunks = chunk_text(text)
     for i, chunk in enumerate(chunks):
@@ -79,12 +80,12 @@ def index_file(conn, file_id: int, text: str):
         conn.execute("INSERT INTO passages_fts (rowid, text, extra) VALUES (?,?,?)", (pid, chunk, years_covered(chunk)))
 
 
-def drop_file(conn, file_id: int):
+def drop_file(conn: sqlite3.Connection, file_id: int) -> None:
     conn.execute("DELETE FROM passages_fts WHERE rowid IN (SELECT id FROM passages WHERE file_id=?)", (file_id,))
     conn.execute("DELETE FROM passages WHERE file_id=?", (file_id,))
 
 
-def backfill(conn) -> int:
+def backfill(conn: sqlite3.Connection) -> int:
     """Passages for every file whose indexed content has none yet: documents indexed before passages
     existed, and images/scans/videos whose description or transcript was just added."""
     rows = conn.execute(
@@ -100,7 +101,7 @@ def backfill(conn) -> int:
 
 
 def search(
-    conn, question: str, limit: int = 6, folder: str = "", ext: str = "", relevance_sql: str = "1.0"
+    conn: sqlite3.Connection, question: str, limit: int = 6, folder: str = "", ext: str = "", relevance_sql: str = "1.0"
 ) -> list[dict]:
     """Best passages across all documents. bm25 rewards passages matching more (and rarer) terms."""
     terms = question_terms(question)

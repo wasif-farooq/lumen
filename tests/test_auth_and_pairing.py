@@ -75,3 +75,13 @@ def test_unpairing_revokes_the_token(env, local, remote):
 def test_tokens_are_stored_hashed(env, local, remote):
     token = pair(local, remote)
     assert token not in (env.data / "devices.json").read_text()
+
+
+def test_paired_devices_are_stored_readable_only_by_the_user(env, local, remote):
+    import stat
+
+    code = local.post("/api/pair/start").json()["code"]
+    assert remote.post("/api/pair", json={"code": code, "name": "phone"}).status_code == 200
+    devices = env.data / "devices.json"
+    assert stat.S_IMODE(devices.stat().st_mode) == 0o600
+    assert "token" not in devices.read_text().replace("token_sha256", "")  # only a hash of the token

@@ -1,5 +1,7 @@
 """The tools the agent can call. All of them are limited to the indexed folders."""
 
+from collections.abc import Callable
+
 from . import changes, files, images, search
 from .context import ToolContext
 
@@ -20,7 +22,7 @@ ORDER = [
 ]
 
 
-def make_tools(emit=None, app: bool = False, state: dict | None = None) -> list:
+def make_tools(emit: Callable[[dict], None] | None = None, app: bool = False, state: dict | None = None) -> list:
     """The tool set for one chat session (see ToolContext for emit and state)."""
     ctx = ToolContext(emit, app, state)
     tools = {}

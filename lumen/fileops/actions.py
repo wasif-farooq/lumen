@@ -87,7 +87,7 @@ def undo(action_id: str) -> str:
     return msg
 
 
-def _trash(p: Path):
+def _trash(p: Path) -> None:
     if shutil.which("gio"):
         r = subprocess.run(["gio", "trash", str(p)], capture_output=True, text=True)
         if r.returncode == 0:
@@ -96,7 +96,7 @@ def _trash(p: Path):
     raise FileOpError("No Trash available here (gio missing); not removing anything.")
 
 
-def _reindex_moved(src: Path, dst: Path):
+def _reindex_moved(src: Path, dst: Path) -> None:
     """Keep search results (and their descriptions, transcripts, passages) for moved files."""
     from ..indexing.scan import words
     from ..storage import db

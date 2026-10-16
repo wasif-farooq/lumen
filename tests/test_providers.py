@@ -118,3 +118,27 @@ def test_vision_check_reads_the_test_picture(env, local, ollama_caps, vision):
         local.post("/api/models/check", json={"role": "vision", "provider": "ollama", "model": "m"}).json()["ok"]
         is False
     )
+
+
+def test_listing_a_providers_models(env, local, provider_models):
+    models = [{"id": "qwen3.5:2b", "size": 2_700_000_000, "vision": False, "tools": True}]
+    provider_models(models)
+    assert local.get("/api/providers/ollama/models").json() == models
+
+
+def test_listing_models_of_a_provider_that_is_down_says_so(env, local):
+    r = local.get("/api/providers/ollama/models")  # Ollama points at an address where nothing listens
+    assert r.status_code == 502 and r.json()["error"]["code"] == "provider_unavailable"
+
+
+def test_downloading_an_ollama_model_reports_its_progress(env, local):
+    from conftest import wait_until
+
+    r = local.post("/api/providers/ollama/pull", json={"model": "tiny:1b"})
+    assert r.status_code == 200, r.text
+    assert r.json()["model"] == "tiny:1b" and r.json()["done"] is False
+    # Nothing listens at the test Ollama address: the download ends with an error the app shows
+    wait_until(lambda: local.get("/api/providers").json()["pulls"][0]["done"])
+    [pull] = local.get("/api/providers").json()["pulls"]
+    assert pull["error"]
+    assert local.post("/api/providers/ollama/pull", json={"model": " "}).status_code == 400

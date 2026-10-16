@@ -6,52 +6,56 @@ progress view. `parse_event` reads those lines back.
 """
 
 import json
+from collections.abc import Callable
 
 EVENT_PREFIX = "@@"
+
+# An AI pass reports each file it finished: (done, total, path, note)
+ItemReport = Callable[[int, int, str, str], None]
 
 
 class Progress:
     """Listens to an index run. This base class ignores everything (handy as a default)."""
 
-    def phase(self, name: str):
+    def phase(self, name: str) -> None:
         """A pass starts: scan, captions, visual, media, passages."""
 
-    def scanned(self, count: int):
+    def scanned(self, count: int) -> None:
         """Files checked so far by the scan (every 500)."""
 
-    def item(self, done: int, total: int, path: str, note: str):
+    def item(self, done: int, total: int, path: str, note: str) -> None:
         """An AI pass finished (or reports on) one file."""
 
-    def paused(self, is_paused: bool):
+    def paused(self, is_paused: bool) -> None:
         """The run holds for a pause from the app, or continues."""
 
-    def summary(self, stats: dict):
+    def summary(self, stats: dict) -> None:
         """The run is done."""
 
 
 class Several(Progress):
     """Tells every listener."""
 
-    def __init__(self, *listeners: Progress):
+    def __init__(self, *listeners: Progress) -> None:
         self.listeners = listeners
 
-    def phase(self, name):
+    def phase(self, name: str) -> None:
         for p in self.listeners:
             p.phase(name)
 
-    def scanned(self, count):
+    def scanned(self, count: int) -> None:
         for p in self.listeners:
             p.scanned(count)
 
-    def item(self, done, total, path, note):
+    def item(self, done: int, total: int, path: str, note: str) -> None:
         for p in self.listeners:
             p.item(done, total, path, note)
 
-    def paused(self, is_paused):
+    def paused(self, is_paused: bool) -> None:
         for p in self.listeners:
             p.paused(is_paused)
 
-    def summary(self, stats):
+    def summary(self, stats: dict) -> None:
         for p in self.listeners:
             p.summary(stats)
 
@@ -59,22 +63,22 @@ class Several(Progress):
 class EventStream(Progress):
     """One '@@{json}' line per event on stdout, for the server that started the run."""
 
-    def _emit(self, **event):
+    def _emit(self, **event: object) -> None:
         print(EVENT_PREFIX + json.dumps(event, default=str), flush=True)
 
-    def phase(self, name):
+    def phase(self, name: str) -> None:
         self._emit(phase=name)
 
-    def scanned(self, count):
+    def scanned(self, count: int) -> None:
         self._emit(scanned=count)
 
-    def item(self, done, total, path, note):
+    def item(self, done: int, total: int, path: str, note: str) -> None:
         self._emit(item={"done": done, "total": total, "path": path, "note": note[:300]})
 
-    def paused(self, is_paused):
+    def paused(self, is_paused: bool) -> None:
         self._emit(paused=is_paused)
 
-    def summary(self, stats):
+    def summary(self, stats: dict) -> None:
         self._emit(summary=stats)
 
 

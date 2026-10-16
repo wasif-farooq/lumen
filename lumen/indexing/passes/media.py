@@ -5,15 +5,21 @@ import hashlib
 import json
 import logging
 import os
+import sqlite3
 import subprocess
 import time
 from io import BytesIO
+from typing import TYPE_CHECKING
 
 from ...core import limits
 from ...core.filetypes import MEDIA_EXTS, VIDEO_EXTS
 from ...core.formatting import fmt_time
 from ...core.settings import settings
 from .. import power
+from ..progress import ItemReport
+
+if TYPE_CHECKING:
+    from faster_whisper import WhisperModel
 
 log = logging.getLogger(__name__)
 
@@ -134,7 +140,7 @@ def describe_frames(path: str, duration: float) -> str:
 _whisper = None
 
 
-def load_whisper():
+def load_whisper() -> "WhisperModel":
     """Load (downloading on first use) the speech model. Runs on CPU so the GPU stays free for the LLM."""
     global _whisper
     if _whisper is None:
@@ -207,7 +213,7 @@ def _fingerprint(path: str, size: int) -> str:
     return h.hexdigest()
 
 
-def process_pending(conn, progress=None, transcripts=True) -> dict:
+def process_pending(conn: sqlite3.Connection, progress: ItemReport | None = None, transcripts: bool = True) -> dict:
     """Index every video/audio file that hasn't been processed (media_done IS NULL)."""
     rows = conn.execute(
         f"SELECT id, path, ext, size FROM files WHERE media_done IS NULL "
@@ -229,7 +235,7 @@ def process_pending(conn, progress=None, transcripts=True) -> dict:
     for n, r in enumerate(rows, 1):
         path, ext = r["path"], r["ext"]
 
-        def say(msg: str, n: int = n, path: str = path):
+        def say(msg: str, n: int = n, path: str = path) -> None:
             if progress:
                 progress(n, len(rows), path, msg)
 
@@ -297,12 +303,12 @@ def process_pending(conn, progress=None, transcripts=True) -> dict:
     return stats
 
 
-def _find_twin(conn, fp: str, file_id: int):
+def _find_twin(conn: sqlite3.Connection, fp: str, file_id: int) -> int | None:
     row = conn.execute("SELECT id FROM files WHERE fingerprint=? AND media_done=1 AND id<>?", (fp, file_id)).fetchone()
     return row["id"] if row else None
 
 
-def _copy_media(conn, src: int, dst: int, fp: str):
+def _copy_media(conn: sqlite3.Connection, src: int, dst: int, fp: str) -> None:
     duration, caption = conn.execute("SELECT duration, caption FROM files WHERE id=?", (src,)).fetchone()
     content = conn.execute("SELECT content FROM files_fts WHERE rowid=?", (src,)).fetchone()[0]
     conn.execute(

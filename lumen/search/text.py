@@ -2,6 +2,7 @@
 what is said in videos: phrase first, then all words, then any word."""
 
 import re
+import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -255,7 +256,7 @@ def _match_exprs(terms: list[str], loose: bool = True) -> list[tuple[str, bool]]
     return exprs
 
 
-def _locate(conn, hit: Hit, file_id: int, terms: list[str]):
+def _locate(conn: sqlite3.Connection, hit: Hit, file_id: int, terms: list[str]) -> None:
     """Find the transcript line that best matches, so the agent can open the video right there."""
     # Strict steps only: a loose match would point at a random line containing one common word
     for match, _ in _match_exprs(terms, loose=False):

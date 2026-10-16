@@ -65,7 +65,7 @@ LATER_COLUMNS = {
 }
 
 
-def _drop_image_hashes(conn):
+def _drop_image_hashes(conn: sqlite3.Connection) -> None:
     """dhash and sha1 were only used by the duplicate-image finder, removed in 0.1.1."""
     have = {r["name"] for r in conn.execute("PRAGMA table_info(files)")}
     for col in ("dhash", "sha1"):
@@ -100,11 +100,11 @@ def connect() -> sqlite3.Connection:
     return conn
 
 
-def _version(conn) -> int:
+def _version(conn: sqlite3.Connection) -> int:
     return conn.execute("PRAGMA user_version").fetchone()[0]
 
 
-def _use_wal(conn, attempts: int = 100):
+def _use_wal(conn: sqlite3.Connection, attempts: int = 100) -> None:
     """Switch a new database to WAL (it is stored in the file, so later opens skip this).
 
     The switch needs the database to itself and SQLite does not wait for that, so when the server
@@ -121,6 +121,6 @@ def _use_wal(conn, attempts: int = 100):
     raise sqlite3.OperationalError("database is locked (could not switch the index to WAL mode)")
 
 
-def _missing_columns(conn) -> list[str]:
+def _missing_columns(conn: sqlite3.Connection) -> list[str]:
     have = {r["name"] for r in conn.execute("PRAGMA table_info(files)")}
     return [col for col in LATER_COLUMNS if col not in have]

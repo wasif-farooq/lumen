@@ -21,7 +21,7 @@ def _inside(p: Path) -> Path:
     return p
 
 
-def _not_a_root(p: Path):
+def _not_a_root(p: Path) -> None:
     if p in settings.roots:
         raise FileOpError(f"{p} is one of your indexed folders itself; I won't move it.")
 

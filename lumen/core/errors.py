@@ -11,7 +11,7 @@ class LumenError(Exception):
     status = 500
     code = "error"
 
-    def __init__(self, message: str, hint: str = ""):
+    def __init__(self, message: str, hint: str = "") -> None:
         super().__init__(message)
         self.message = message
         self.hint = hint

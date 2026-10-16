@@ -4,14 +4,22 @@
 - similar images: by path or by an uploaded photo
 """
 
+import sqlite3
 from io import BytesIO
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from ..core.settings import settings
 from ..indexing import power
 
+if TYPE_CHECKING:
+    from PIL import Image
+
 REPO = "Xenova/clip-vit-base-patch32"  # quantized ONNX build of OpenAI CLIP ViT-B/32
+# Searching pictures by words: minimum CLIP score, and how far below the best match still counts
+TEXT_FLOOR, TEXT_SPREAD = 0.26, 0.025
 FILES = ["onnx/vision_model_quantized.onnx", "onnx/text_model_quantized.onnx", "tokenizer.json"]
 MIN_BYTES = 2 * 1024  # skip tiny icons
 MEAN = np.array([0.48145466, 0.4578275, 0.40821073], dtype=np.float32).reshape(3, 1, 1)
@@ -20,11 +28,11 @@ STD = np.array([0.26862954, 0.26130258, 0.27577711], dtype=np.float32).reshape(3
 _models = {}
 
 
-def _model_dir():
+def _model_dir() -> Path:
     return settings.data_dir / "models" / "clip"
 
 
-def _load():
+def _load() -> dict:
     if _models:
         return _models
     import onnxruntime as ort
@@ -45,14 +53,14 @@ def _normalize(v: np.ndarray) -> np.ndarray:
     return v / np.maximum(np.linalg.norm(v, axis=-1, keepdims=True), 1e-8)
 
 
-def _pixels(im) -> np.ndarray:
+def _pixels(im: "Image.Image") -> np.ndarray:
     """CLIP preprocessing: shortest side 224 (bicubic), center crop 224, scale, normalize, CHW."""
     from PIL import Image
 
     im = im.convert("RGB")
     w, h = im.size
     s = 224 / min(w, h)
-    im = im.resize((max(224, round(w * s)), max(224, round(h * s))), Image.BICUBIC)
+    im = im.resize((max(224, round(w * s)), max(224, round(h * s))), Image.Resampling.BICUBIC)
     w, h = im.size
     left, top = (w - 224) // 2, (h - 224) // 2
     im = im.crop((left, top, left + 224, top + 224))
@@ -73,7 +81,7 @@ def embed_text(text: str) -> np.ndarray:
     return _normalize(out)[0]
 
 
-def open_image(source):
+def open_image(source: str | bytes) -> "Image.Image":
     """PIL image from a path (any format we caption) or raw bytes, downscaled for speed."""
     from PIL import Image
 
@@ -89,10 +97,10 @@ def open_image(source):
 
 # ---------- search ----------
 
-_cache = {"key": None}
+_cache: dict[str, Any] = {"key": None}
 
 
-def _matrix(conn):
+def _matrix(conn: sqlite3.Connection) -> tuple[list[dict], np.ndarray]:
     """All image signatures as one matrix (cached until the set of images changes)."""
     key = conn.execute(
         "SELECT COUNT(*), COALESCE(MAX(id), 0), COALESCE(SUM(LENGTH(embedding)), 0) FROM files WHERE visual_done=1"
@@ -112,7 +120,9 @@ def _matrix(conn):
     return _cache["rows"], _cache["vecs"]
 
 
-def _top(conn, vec: np.ndarray, k: int, floor: float, folder: str = "", skip: str = "") -> list[tuple[dict, float]]:
+def _top(
+    conn: sqlite3.Connection, vec: np.ndarray, k: int, floor: float, folder: str = "", skip: str = ""
+) -> list[tuple[dict, float]]:
     rows, vecs = _matrix(conn)
     if not rows:
         return []
@@ -130,14 +140,16 @@ def _top(conn, vec: np.ndarray, k: int, floor: float, folder: str = "", skip: st
     return out
 
 
-def search_text(conn, description: str, k: int = 12, folder: str = "") -> list[tuple[dict, float]]:
+def search_text(conn: sqlite3.Connection, description: str, k: int = 12, folder: str = "") -> list[tuple[dict, float]]:
     # CLIP text-image scores are small and close together: for your images a real match scored
     # ~0.28-0.30 while "a cat" (no cats) still scored 0.24. Keep only clear matches near the best one.
-    found = _top(conn, embed_text(f"a photo of {description}"), k, floor=0.26, folder=folder)
-    return [(r, s) for r, s in found if s >= found[0][1] - 0.025] if found else []
+    found = _top(conn, embed_text(f"a photo of {description}"), k, floor=TEXT_FLOOR, folder=folder)
+    return [(r, s) for r, s in found if s >= found[0][1] - TEXT_SPREAD] if found else []
 
 
-def similar_to(conn, source, k: int = 12, folder: str = "") -> list[tuple[dict, float]]:
+def similar_to(
+    conn: sqlite3.Connection, source: str | bytes, k: int = 12, folder: str = ""
+) -> list[tuple[dict, float]]:
     """source: an indexed image path, or raw image bytes (an uploaded photo)."""
     skip = ""
     if isinstance(source, str):

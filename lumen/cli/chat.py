@@ -1,6 +1,9 @@
 """`lumen ask` and `lumen chat`: talk to the agent in the terminal, approving changes as they come."""
 
+import argparse
 import json
+from collections.abc import Iterator
+from typing import TYPE_CHECKING
 
 from rich.markdown import Markdown
 
@@ -8,8 +11,12 @@ from ..core.settings import settings
 from ..storage import catalog
 from .console import console
 
+if TYPE_CHECKING:
+    from ..agent import Session
+    from ..agent.session import AgentEvent
 
-def _run_turn(session, text: str):
+
+def _run_turn(session: "Session", text: str) -> None:
     from langgraph.errors import GraphRecursionError
 
     try:
@@ -27,7 +34,7 @@ def _run_turn(session, text: str):
         console.print("I went in circles on that one and stopped. Try rephrasing it more specifically.", style="yellow")
 
 
-def _stream_turn(events):
+def _stream_turn(events: Iterator["AgentEvent"]) -> dict | None:
     """Print one run of the agent; returns the pending approval request, if it paused on one."""
     with console.status("thinking…", spinner="dots") as status:
         for kind, payload in events:
@@ -49,7 +56,7 @@ def _stream_turn(events):
                 console.print(Markdown(payload or "(no answer)"))
 
 
-def _session():
+def _session() -> "Session":
     from ..agent import Session
 
     s = Session()
@@ -65,7 +72,7 @@ def _session():
     return s
 
 
-def ask(a):
+def ask(a: argparse.Namespace) -> None:
     s = _session()
     try:
         _run_turn(s, " ".join(a.question))
@@ -73,7 +80,7 @@ def ask(a):
         s.close()
 
 
-def chat(_):
+def chat(_: argparse.Namespace) -> None:
     s = _session()
     console.print("Ask me to find or open files. Type 'exit' to quit.\n", style="dim")
     try:

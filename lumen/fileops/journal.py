@@ -10,7 +10,7 @@ def log_file() -> Path:
     return settings.data_dir / "actions.jsonl"
 
 
-def append(entry: dict):
+def append(entry: dict) -> None:
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     with log_file().open("a") as f:
         f.write(json.dumps(entry) + "\n")
@@ -23,5 +23,5 @@ def history() -> list[dict]:
         return []
 
 
-def save(entries: list[dict]):
+def save(entries: list[dict]) -> None:
     log_file().write_text("".join(json.dumps(e) + "\n" for e in entries))

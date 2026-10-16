@@ -1,12 +1,15 @@
 """Changes to the user's files: each one pauses for the user's approval (LangGraph interrupt)."""
 
+from collections.abc import Callable
+
 from langchain_core.tools import tool
 from langgraph.types import interrupt
 
 from ... import fileops
+from .context import ToolContext
 
 
-def build(ctx) -> dict:
+def build(ctx: ToolContext) -> dict:
     last_results, emit, resolve = ctx.last_results, ctx.emit, ctx.resolve
 
     def _approved(plan: dict) -> str:
@@ -28,7 +31,7 @@ def build(ctx) -> dict:
             last_results[:] = [done["dst"]]
         return done["message"]
 
-    def _plan(fn, *args) -> str:
+    def _plan(fn: Callable[..., dict], *args: object) -> str:
         try:
             return _approved(fn(*args))
         except fileops.FileOpError as e:

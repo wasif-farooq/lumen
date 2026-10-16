@@ -9,6 +9,7 @@ import sqlite3
 import time
 import uuid
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS chats (id TEXT PRIMARY KEY, title TEXT, created REAL, updated REAL);
@@ -17,11 +18,14 @@ CREATE INDEX IF NOT EXISTS events_chat ON events(chat_id);
 """
 NEW_TITLE = "New chat"
 
+if TYPE_CHECKING:
+    from langgraph.checkpoint.sqlite import SqliteSaver
+
 
 class ChatStore:
     """Chats and their events in chats.db."""
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         self._db = sqlite3.connect(path, check_same_thread=False)
         self._db.row_factory = sqlite3.Row
@@ -38,7 +42,7 @@ class ChatStore:
         self._db.commit()
         return chat
 
-    def delete(self, chat_id: str):
+    def delete(self, chat_id: str) -> None:
         self._db.execute("DELETE FROM events WHERE chat_id=?", (chat_id,))
         self._db.execute("DELETE FROM chats WHERE id=?", (chat_id,))
         self._db.commit()
@@ -48,16 +52,16 @@ class ChatStore:
         row = self._db.execute("SELECT title FROM chats WHERE id=?", (chat_id,)).fetchone()
         return row["title"] if row else None
 
-    def set_title(self, chat_id: str, title: str):
+    def set_title(self, chat_id: str, title: str) -> None:
         self._db.execute("UPDATE chats SET title=? WHERE id=?", (title, chat_id))
         self._db.commit()
 
-    def name_from_first_message(self, chat_id: str, text: str, limit: int = 48):
+    def name_from_first_message(self, chat_id: str, text: str, limit: int = 48) -> None:
         """A new chat is named after the first thing the user asked."""
         if self.title(chat_id) == NEW_TITLE:
             self.set_title(chat_id, text if len(text) <= limit else text[: limit - 3].rsplit(" ", 1)[0] + "…")
 
-    def log(self, chat_id: str, kind: str, data: dict):
+    def log(self, chat_id: str, kind: str, data: dict) -> None:
         now = time.time()
         self._db.execute(
             "INSERT INTO events (chat_id, at, type, data) VALUES (?,?,?,?)", (chat_id, now, kind, json.dumps(data))
@@ -70,7 +74,7 @@ class ChatStore:
         return [{"type": r["type"], "at": r["at"], **json.loads(r["data"])} for r in rows]
 
 
-def checkpointer(path: Path):
+def checkpointer(path: Path) -> "SqliteSaver":
     """LangGraph's store for the agent's memory of each conversation."""
     from langgraph.checkpoint.sqlite import SqliteSaver
 

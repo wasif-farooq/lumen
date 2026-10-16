@@ -3,8 +3,11 @@ files that are gone. Unchanged files (same size and time) are skipped."""
 
 import os
 import re
+import sqlite3
 import time
+from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 from ..core import limits
 from ..core.settings import settings
@@ -14,8 +17,10 @@ from . import power
 from .extract import extract_text
 from .progress import Progress
 
+PROGRESS_EVERY = 500  # files between progress reports (and pause checks) while scanning
 
-def walk(root: Path):
+
+def walk(root: Path) -> Iterator[Path]:
     """Files under a folder, skipping hidden files, dependency/build folders and excluded paths."""
     excluded = set(settings.excluded)
     for dirpath, dirnames, filenames in os.walk(root):
@@ -35,12 +40,12 @@ def words(s: str) -> str:
     return " ".join(re.findall(r"[^\W_]+", s))
 
 
-def scan(conn, roots: list[Path], progress: Progress) -> dict:
+def scan(conn: sqlite3.Connection, roots: list[Path], progress: Progress) -> dict:
     known = {
         r["path"]: (r["id"], r["size"], r["mtime"]) for r in conn.execute("SELECT id, path, size, mtime FROM files")
     }
     seen = set()
-    stats = {"scanned": 0, "added": 0, "updated": 0, "removed": 0, "with_text": 0}
+    stats: dict[str, Any] = {"scanned": 0, "added": 0, "updated": 0, "removed": 0, "with_text": 0}
     started = time.time()
     paused = set(settings.paused_roots)
     for root in roots:
@@ -59,7 +64,7 @@ def scan(conn, roots: list[Path], progress: Progress) -> dict:
             prev = known.get(p)
             if not (prev and prev[1] == st.st_size and prev[2] == st.st_mtime):
                 _add_or_update(conn, path, st, prev, stats)
-            if stats["scanned"] % 500 == 0:
+            if stats["scanned"] % PROGRESS_EVERY == 0:
                 progress.scanned(stats["scanned"])
                 if os.environ.get("LUMEN_PAUSE_FILE"):
                     conn.commit()  # never hold the write lock while paused
@@ -79,7 +84,7 @@ def scan(conn, roots: list[Path], progress: Progress) -> dict:
     return stats
 
 
-def _add_or_update(conn, path: Path, st, prev, stats: dict):
+def _add_or_update(conn: sqlite3.Connection, path: Path, st: os.stat_result, prev: tuple | None, stats: dict) -> None:
     ext = path.suffix.lower().lstrip(".")
     text = extract_text(path, ext, st.st_size)
     row = (str(path), path.name, ext, st.st_size, st.st_mtime, int(bool(text)))
@@ -95,9 +100,8 @@ def _add_or_update(conn, path: Path, st, prev, stats: dict):
         file_id = prev[0]
         stats["updated"] += 1
     else:
-        file_id = conn.execute(
-            "INSERT INTO files (path, name, ext, size, mtime, has_text) VALUES (?,?,?,?,?,?)", row
-        ).lastrowid
+        cur = conn.execute("INSERT INTO files (path, name, ext, size, mtime, has_text) VALUES (?,?,?,?,?,?)", row)
+        file_id = cur.lastrowid or 0
         stats["added"] += 1
     conn.execute(
         "INSERT INTO files_fts (rowid, name, path, content) VALUES (?,?,?,?)",

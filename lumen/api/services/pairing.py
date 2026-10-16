@@ -8,6 +8,7 @@ import time
 import uuid
 from pathlib import Path
 
+from ...core import private_files
 from ...core.settings import settings
 
 CODE_SECONDS = 120
@@ -15,7 +16,7 @@ MAX_TRIES = 5
 
 
 class Pairing:
-    def __init__(self):
+    def __init__(self) -> None:
         self.code: str | None = None
         self.expires = 0.0
         self.tries = 0
@@ -64,13 +65,11 @@ class Pairing:
         except (OSError, ValueError):
             return []
 
-    def unpair(self, device_id: str):
+    def unpair(self, device_id: str) -> None:
         self._save([d for d in self.devices() if d["id"] != device_id])
 
     def _file(self) -> Path:
         return settings.data_dir / "devices.json"
 
-    def _save(self, devices: list[dict]):
-        f = self._file()
-        f.write_text(json.dumps(devices, indent=1))
-        f.chmod(0o600)
+    def _save(self, devices: list[dict]) -> None:
+        private_files.write_json(self._file(), devices)

@@ -3,12 +3,23 @@ look the same to the rest of Lumen: a chat model, describe an image, list models
 
 import base64
 import logging
+from typing import TYPE_CHECKING, Any
+
+from pydantic import SecretStr
 
 from ..core import limits
 from ..core.settings import settings
 from . import registry
 
+if TYPE_CHECKING:
+    import ollama
+    import openai
+    from langchain_core.language_models.chat_models import BaseChatModel
+
 log = logging.getLogger(__name__)
+
+
+MODEL_TIMEOUT = 120  # seconds for one model answer (a local model may first need to load)
 
 
 def why(e: Exception) -> str:
@@ -24,10 +35,10 @@ def why(e: Exception) -> str:
 class Backend:
     """One provider (its saved entry: id, name, kind, base_url, maybe api_key)."""
 
-    def __init__(self, provider: dict):
+    def __init__(self, provider: dict) -> None:
         self.p = provider
 
-    def chat_model(self, model: str, **ollama_options):
+    def chat_model(self, model: str, **ollama_options: Any) -> "BaseChatModel":
         """A LangChain chat model; ollama_options only apply to Ollama."""
         raise NotImplementedError
 
@@ -40,17 +51,17 @@ class Backend:
 
 
 class OllamaBackend(Backend):
-    def _client(self, timeout=None):
+    def _client(self, timeout: float | None = None) -> "ollama.Client":
         import ollama
 
         return ollama.Client(host=self.p["base_url"], **({"timeout": timeout} if timeout else {}))
 
-    def chat_model(self, model, **ollama_options):
+    def chat_model(self, model: str, **ollama_options: Any) -> "BaseChatModel":
         from langchain_ollama import ChatOllama
 
         return ChatOllama(model=model, base_url=self.p["base_url"], **ollama_options)
 
-    def describe_image(self, model, prompt, png, max_tokens):
+    def describe_image(self, model: str, prompt: str, png: bytes, max_tokens: int) -> str:
         resp = self._client().chat(
             model=model,
             messages=[{"role": "user", "content": prompt, "images": [png]}],
@@ -58,12 +69,14 @@ class OllamaBackend(Backend):
             keep_alive=limits.INDEX_KEEP_ALIVE,
             options=settings.ollama_options(num_predict=max_tokens, num_ctx=4096, temperature=0),
         )
-        return " ".join(resp.message.content.split())
+        return " ".join((resp.message.content or "").split())
 
-    def list_models(self):
+    def list_models(self) -> list[dict]:
         client = self._client(timeout=10)
         out = []
         for m in client.list().models:
+            if not m.model:
+                continue
             try:
                 caps = client.show(m.model).capabilities or []
                 vision, tools = "vision" in caps, "tools" in caps
@@ -75,26 +88,29 @@ class OllamaBackend(Backend):
 
 
 class OpenAICompatible(Backend):
-    def _client(self):
+    def _client(self) -> "openai.OpenAI":
         import openai
 
         return openai.OpenAI(
-            base_url=self.p["base_url"], api_key=self.p.get("api_key") or "not-needed", timeout=120, max_retries=1
+            base_url=self.p["base_url"],
+            api_key=self.p.get("api_key") or "not-needed",
+            timeout=MODEL_TIMEOUT,
+            max_retries=1,
         )
 
-    def chat_model(self, model, **ollama_options):
+    def chat_model(self, model: str, **ollama_options: Any) -> "BaseChatModel":
         from langchain_openai import ChatOpenAI
 
         return ChatOpenAI(
             model=model,
             base_url=self.p["base_url"],
-            api_key=self.p.get("api_key") or "not-needed",
+            api_key=SecretStr(self.p.get("api_key") or "not-needed"),
             temperature=ollama_options.get("temperature", 0),
-            timeout=120,
+            timeout=MODEL_TIMEOUT,
             max_retries=1,
         )
 
-    def describe_image(self, model, prompt, png, max_tokens):
+    def describe_image(self, model: str, prompt: str, png: bytes, max_tokens: int) -> str:
         import openai
 
         url = "data:image/png;base64," + base64.b64encode(png).decode()
@@ -114,7 +130,7 @@ class OpenAICompatible(Backend):
             raise ConnectionError(why(e)) from e
         return " ".join((resp.choices[0].message.content or "").split())
 
-    def list_models(self):
+    def list_models(self) -> list[dict]:
         try:
             models = self._client().models.list()
         except Exception as e:
@@ -132,7 +148,7 @@ def backend(pid: str) -> Backend:
 # ---------- what the rest of Lumen calls ----------
 
 
-def chat_model(provider: str | None = None, model: str | None = None, **ollama_options):
+def chat_model(*, provider: str | None = None, model: str | None = None, **ollama_options: Any) -> "BaseChatModel":
     """The chat model for the agent job (or the given provider/model)."""
     return backend(provider or settings.agent_provider).chat_model(model or settings.agent_model, **ollama_options)
 

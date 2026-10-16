@@ -1,5 +1,7 @@
 """Fixed limits: not user settings, but in one place so they are easy to find and tune."""
 
+DEFAULT_PORT = 8765  # where `lumen serve` listens and the app looks for it
+
 SKIP_DIRS = {  # dependency and build folders: never personal files
     "node_modules",
     "__pycache__",

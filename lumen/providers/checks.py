@@ -8,6 +8,9 @@ from . import backends, registry
 log = logging.getLogger(__name__)
 
 
+CAPS_TIMEOUT = 15  # seconds to ask Ollama what a model can do
+
+
 def _test_image() -> bytes:
     """A small picture with a word and a number on it, for the vision check."""
     from io import BytesIO
@@ -31,7 +34,7 @@ def ollama_caps(p: dict, model: str) -> list[str] | None:
     try:
         import ollama
 
-        return list(ollama.Client(host=p["base_url"], timeout=15).show(model).capabilities or [])
+        return list(ollama.Client(host=p["base_url"], timeout=CAPS_TIMEOUT).show(model).capabilities or [])
     except Exception as e:
         if "not found" in str(e).lower():
             raise LookupError(f"{model} is not installed in Ollama. Download it first.") from e
@@ -52,9 +55,8 @@ def check(role: str, provider: str, model: str) -> dict:
     def done(ok: bool) -> dict:
         return {"ok": ok, "checks": checks, "seconds": round(time.time() - started, 1)}
 
-    def add(name: str, ok: bool, detail: str):
+    def add(name: str, ok: bool, detail: str) -> None:
         checks.append({"name": name, "ok": ok, "detail": detail})
-        return ok
 
     if role not in registry.ROLES:
         raise ValueError(f"Unknown role '{role}'")
@@ -83,7 +85,7 @@ def check(role: str, provider: str, model: str) -> dict:
             return "no results"
 
         try:
-            llm = backends.chat_model(provider, model, temperature=0, reasoning=False, num_ctx=4096)
+            llm = backends.chat_model(provider=provider, model=model, temperature=0, reasoning=False, num_ctx=4096)
             msg = llm.bind_tools([search_files]).invoke(
                 "Find my files about invoices. Use the search_files tool; do not answer in text."
             )

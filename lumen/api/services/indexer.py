@@ -17,17 +17,22 @@ from ...indexing.progress import EVENT_PREFIX, parse_event
 log = logging.getLogger(__name__)
 
 
+LOG_LINES = 300  # the indexer's output kept for the app's "technical log"
+RECENT_FILES = 8  # files shown as recently done
+STOP_WAIT_SECONDS = 5  # after Stop, before the indexer is killed
+
+
 class Indexer:
-    def __init__(self):
-        self.proc = None
-        self.lines = deque(maxlen=300)
+    def __init__(self) -> None:
+        self.proc: subprocess.Popen[str] | None = None
+        self.lines = deque(maxlen=LOG_LINES)
         self.started = None
         self.stopping = False
         self.pause_file = settings.data_dir / "index.pause"
         self.pause_file.unlink(missing_ok=True)  # a flag left by a crash would hold the next run
         self._reset()
 
-    def _reset(self):
+    def _reset(self) -> None:
         self.state = {
             "phase": None,
             "done": 0,
@@ -41,7 +46,7 @@ class Indexer:
             "summary": None,
             "error": None,
         }
-        self.recent = deque(maxlen=8)  # last files finished: {phase, path, note}
+        self.recent = deque(maxlen=RECENT_FILES)  # last files finished: {phase, path, note}
         self.phase_started = time.time()
         self.paused_since = None
         self.paused_in_phase = 0.0  # seconds, so the time-left estimate ignores pauses
@@ -54,7 +59,7 @@ class Indexer:
     def pause_requested(self) -> bool:
         return self.pause_file.exists()
 
-    def start(self):
+    def start(self) -> None:
         if self.running:
             return
         self.pause_file.unlink(missing_ok=True)
@@ -100,19 +105,20 @@ class Indexer:
             return False
         import signal
 
+        proc = self._proc()
         self.stopping = True
         log.info("indexing stopped from the app")
-        pgid = os.getpgid(self.proc.pid)
+        pgid = os.getpgid(proc.pid)
         os.killpg(pgid, signal.SIGTERM)
         try:
-            self.proc.wait(timeout=5)
+            proc.wait(timeout=STOP_WAIT_SECONDS)
         except subprocess.TimeoutExpired:
             os.killpg(pgid, signal.SIGKILL)
-            self.proc.wait(timeout=5)
+            proc.wait(timeout=STOP_WAIT_SECONDS)
         self.lines.append("Stopped. Finished work is saved; the next run continues with the rest.")
         return True
 
-    def _event(self, e: dict):
+    def _event(self, e: dict) -> None:
         st, now = self.state, time.time()
         if "phase" in e:
             st.update(phase=e["phase"], done=0, total=0, path=None, note=None)
@@ -138,8 +144,14 @@ class Indexer:
         if "summary" in e:
             st["summary"] = e["summary"]
 
-    def _pump(self):
-        for line in self.proc.stdout:
+    def _proc(self) -> subprocess.Popen[str]:
+        if self.proc is None:
+            raise RuntimeError("indexing was not started")
+        return self.proc
+
+    def _pump(self) -> None:
+        proc = self._proc()
+        for line in proc.stdout or ():
             line = line.rstrip()
             if line.startswith(EVENT_PREFIX):  # progress for the app; a garbled one is dropped
                 event = parse_event(line)
@@ -152,9 +164,9 @@ class Indexer:
                 self.lines.append(line)
         self.pause_file.unlink(missing_ok=True)
         self.state["paused"] = False
-        self._finished(self.proc.wait())
+        self._finished(proc.wait())
 
-    def _finished(self, code: int):
+    def _finished(self, code: int) -> None:
         """Log how the run ended; a crash becomes an error the app shows."""
         if code == 0 or self.stopping:
             log.info("indexing finished (exit %s)", code)

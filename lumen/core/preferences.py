@@ -30,7 +30,7 @@ def current() -> dict:
     return out
 
 
-def load():
+def load() -> None:
     """Apply saved preferences (once, at start)."""
     try:
         saved = json.loads(_file().read_text())
@@ -50,7 +50,7 @@ def update(changes: dict) -> dict:
     return current()
 
 
-def _apply(values: dict):
+def _apply(values: dict) -> None:
     changes = {name: typ(values[name]) for name, typ in FIELDS.items() if values.get(name) is not None}
     if "roots" in values and values["roots"]:
         changes["roots"] = check_roots(values["roots"])
