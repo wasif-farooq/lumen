@@ -7,7 +7,6 @@ import '../api.dart';
 import '../app_state.dart';
 import '../theme.dart';
 import 'common.dart';
-import 'duplicates.dart';
 import 'results.dart';
 
 /// The conversation: user bubbles, tool chips, result cards and answers.
@@ -83,17 +82,6 @@ class _ChatViewState extends State<ChatView> {
             ? Image.network(s.api.uploadUrl(e.upload!), headers: s.api.headers, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox())
             : (e.imagePath != null ? ApiImage(api: s.api, path: e.imagePath!, w: 320) : null);
         return _UserBubble(text: e.text, compact: widget.compact, image: image);
-      case 'duplicates':
-        final groups = e.groups;
-        if (groups.isEmpty) return const Text('No duplicate images found.', style: TextStyle(color: C.text3));
-        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          for (final g in groups.take(3)) ...[
-            DuplicateGroupCard(group: g, api: s.api, compact: widget.compact, onOpen: (h) => widget.onOpen(h), onShow: widget.onShow),
-            const SizedBox(height: 8),
-          ],
-          if (groups.length > 3)
-            Text('+ ${groups.length - 3} more groups on the Duplicates page', style: const TextStyle(fontSize: 13, color: C.text3)),
-        ]);
       case 'tool_call':
         return ToolChip(name: e.data['name'] ?? '', args: Map<String, dynamic>.from(e.data['args'] ?? {}));
       case 'results':

@@ -9,7 +9,7 @@ It runs on your laptop with a local model (Ollama) by default. Nothing leaves th
 ## What it does
 
 - **Searches everything you index**: file names, the text of PDFs, Word files, notes and code, descriptions of photos and scanned pages, and transcripts of video and audio with timestamps ("play it at 10:05").
-- **Finds pictures by what they show**, finds images that look like a given photo (drop one on the chat), and lists **duplicate images** with the space the extra copies take.
+- **Finds pictures by what they show**, and finds images that look like a given photo (drop one on the chat).
 - **Answers questions about a file** by reading it, and opens files or shows them in their folder.
 - **Organises files with your approval**: create folders and files, copy, move and rename. Every change asks first and can be undone. It cannot delete anything.
 - **Indexes quietly**: low CPU and disk priority, and in Auto mode the AI work only runs while plugged in. Pause, resume or stop a run any time, and see live progress.
@@ -27,7 +27,7 @@ lumen serve ── chat agent (LangGraph + tools) ── model provider (Ollama 
               files → text (PDF, DOCX, text/code)
               images & scans → descriptions (vision model)
               video & audio → frame descriptions + speech transcripts (faster-whisper, CPU)
-              images → visual signatures for look-alikes and duplicates (CLIP, CPU)
+              images → visual signatures for search and look-alikes (CLIP, CPU)
               everything → SQLite full-text index
 ```
 

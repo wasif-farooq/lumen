@@ -9,7 +9,6 @@ import '../app_state.dart';
 import '../theme.dart';
 import '../widgets/chat_view.dart';
 import '../widgets/common.dart';
-import '../widgets/duplicates.dart';
 import '../widgets/preview_panel.dart';
 
 class Found {
@@ -303,19 +302,6 @@ class _MobileChatState extends State<MobileChat> {
                           },
                         ),
                     ]),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.photo_library_outlined),
-                    title: const Text('Duplicate images'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => Scaffold(
-                          appBar: AppBar(title: const Text('Duplicate images'), backgroundColor: C.bg),
-                          body: DuplicatesView(api: s.api, compact: true, onOpen: (h) => _open(h), onShow: _show),
-                        ),
-                      ));
-                    },
                   ),
                   ListTile(leading: const Icon(Icons.link_off), title: Text('Unpair from ${s.host}'), onTap: widget.onUnpair),
                 ]),

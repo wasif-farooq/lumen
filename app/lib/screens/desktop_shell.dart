@@ -22,7 +22,7 @@ class _DesktopShellState extends State<DesktopShell> {
   String page = 'chat';
   bool dragging = false;
 
-  static const _settingsTabs = {'settings': 0, 'models': 1, 'index': 2, 'duplicates': 3};
+  static const _settingsTabs = {'settings': 0, 'models': 1, 'index': 2};
 
   static const _imageExts = {'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'heic'};
 
@@ -70,12 +70,10 @@ class _DesktopShellState extends State<DesktopShell> {
             _Sidebar(state: s, page: page, onPage: (p) => setState(() => page = p)),
             Expanded(
               child: switch (page) {
-                'settings' || 'models' || 'index' || 'duplicates' => SettingsScreen(
+                'settings' || 'models' || 'index' => SettingsScreen(
                     state: s,
                     tab: _settingsTabs[page]!,
                     onTab: (i) => setState(() => page = _settingsTabs.entries.firstWhere((e) => e.value == i).key),
-                    onOpen: (h) => _open(h),
-                    onShow: _show,
                   ),
                 _ => DropTarget(
                     onDragEntered: (_) => setState(() => dragging = true),
@@ -213,8 +211,8 @@ class _Sidebar extends StatelessWidget {
         _NavButton(
           icon: Icons.settings_outlined,
           label: 'Settings',
-          active: page == 'settings' || page == 'models' || page == 'duplicates',
-          onTap: () => onPage(page == 'settings' || page == 'models' || page == 'duplicates' ? 'chat' : 'settings'),
+          active: page == 'settings' || page == 'models',
+          onTap: () => onPage(page == 'settings' || page == 'models' ? 'chat' : 'settings'),
         ),
         const SizedBox(height: 8),
         Material(

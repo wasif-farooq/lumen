@@ -45,22 +45,8 @@ class ChatEvent {
 
   String get text => data['text'] ?? '';
   List<Hit> get hits => [for (final h in (data['hits'] as List? ?? [])) Hit.fromJson(h)];
-  List<DupGroup> get groups => [for (final g in (data['groups'] as List? ?? [])) DupGroup.fromJson(g)];
   String? get upload => data['upload'];
   String? get imagePath => data['image_path'];
-}
-
-/// Copies of the same image: identical files, or the same picture saved differently.
-class DupGroup {
-  final String kind, keep;
-  final int reclaimable;
-  final List<Hit> files;
-  DupGroup.fromJson(Map<String, dynamic> j)
-      : kind = j['kind'] ?? 'identical',
-        keep = j['keep'] ?? '',
-        reclaimable = (j['reclaimable'] ?? 0) as int,
-        files = [for (final f in (j['files'] as List? ?? [])) Hit.fromJson({...f, 'kind': 'image'})];
-  bool get identical => kind == 'identical';
 }
 
 class Segment {
@@ -173,8 +159,6 @@ class Api {
   }
 
   String uploadUrl(String id) => _u('/api/uploads/$id').toString();
-  Future<List<DupGroup>> duplicates() async =>
-      [for (final g in (await _get('/api/duplicates'))['groups'] as List) DupGroup.fromJson(g)];
 
   Future<List<Hit>> search(String q, {String ext = ''}) async =>
       [for (final h in await _get('/api/search', {'q': q, 'ext': ext})) Hit.fromJson(h)];

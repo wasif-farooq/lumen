@@ -81,20 +81,6 @@ def hybrid_image_search(conn, description: str, limit: int = 8, folder: str = ""
     return image_hits(conn, [info[p] for p in best])
 
 
-def describe_duplicates(groups: list[dict], limit: int = 6) -> str:
-    if not groups:
-        return "No duplicate images found."
-    total = sum(g["reclaimable"] for g in groups)
-    lines = [f"{len(groups)} groups of duplicate images; removing the extra copies would free {total / 1048576:.1f} MB."]
-    for n, g in enumerate(groups[:limit], 1):
-        kind = "identical files" if g["kind"] == "identical" else "same picture, different file"
-        lines.append(f"{n}. {kind}, {len(g['files'])} copies (keep: {g['keep']}):")
-        lines += [f"   - {f['path']}" for f in g["files"]]
-    if len(groups) > limit:
-        lines.append(f"... and {len(groups) - limit} more groups.")
-    return "\n".join(lines)
-
-
 def make_tools(emit=None, app=False, state=None):
     """Build the tool set for one chat session.
 
@@ -335,24 +321,6 @@ def make_tools(emit=None, app=False, state=None):
         return f"Images that look like {path.name}:\n" + "\n".join(
             f"{i}. {h['name']}  path: {h['path']}  similarity {h['score']}" for i, h in enumerate(hits, 1))
 
-    @tool
-    def find_duplicates(folder: str = "") -> str:
-        """Find duplicate images: identical copies and the same picture saved as different files
-        (resized, recompressed). Reports how much space the extra copies use. Does not delete anything.
-
-        Args:
-            folder: only images whose path contains this text (optional).
-        """
-        from . import visual
-
-        conn = index.connect()
-        try:
-            groups = visual.duplicates(conn, folder=folder)
-        finally:
-            conn.close()
-        emit({"type": "duplicates", "groups": groups})
-        return describe_duplicates(groups)
-
     # ---- changes: each one pauses for the user's approval (LangGraph interrupt) ----
 
     def _approved(plan: dict) -> str:
@@ -431,5 +399,5 @@ def make_tools(emit=None, app=False, state=None):
 
         return _plan(fileops.plan_move, str(resolve(source)), destination)
 
-    return [search_files, find_in_files, read_file, search_images, find_similar_images, find_duplicates,
-            list_dir, open_file, show_in_folder, create_folder, create_file, copy_file, move_file]
+    return [search_files, find_in_files, read_file, search_images, find_similar_images, list_dir,
+            open_file, show_in_folder, create_folder, create_file, copy_file, move_file]

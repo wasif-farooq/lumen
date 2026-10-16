@@ -262,7 +262,7 @@ def _friendly(e: Exception) -> str:
     return f"Something went wrong: {e}"
 
 
-# ---------- images: visual search, similar, duplicates ----------
+# ---------- images: visual search, similar ----------
 
 def _similar_and_log(chat_id: str, source, label: dict) -> list[dict]:
     """Run a similar-image search for an app button/upload and record it in the chat."""
@@ -355,18 +355,6 @@ def get_upload(upload_id: str, _=Depends(auth)):
     if not f.exists():
         raise HTTPException(404, "Not found")
     return Response(f.read_bytes(), media_type="image/jpeg", headers={"Cache-Control": "max-age=86400"})
-
-
-@app.get("/api/duplicates")
-def get_duplicates(folder: str = "", _=Depends(auth)):
-    from . import visual
-
-    conn = index.connect()
-    try:
-        groups = visual.duplicates(conn, folder=folder)
-    finally:
-        conn.close()
-    return {"groups": groups, "reclaimable": sum(g["reclaimable"] for g in groups)}
 
 
 # ---------- files ----------

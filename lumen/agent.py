@@ -42,8 +42,7 @@ Rules:
   say what you found and that the rest was not checked, or search more with find_in_files.
 - Years inside ranges count: "01/2014 - 05/2019" includes 2014.
 - Pictures by what they show ("photos of the beach", "my passport picture"): search_images.
-  "Images like this one / similar photos": find_similar_images. "Duplicate photos": find_duplicates
-  (it never deletes; tell the user how much space the extra copies use).
+  "Images like this one / similar photos": find_similar_images.
 - Changes: create_folder, create_file (small text files), copy_file, move_file (also renames).
   Each one shows the user an approval request; call it once and wait for the result.
   Use full paths; for "move it/that file" use the result number. You can NOT delete files.

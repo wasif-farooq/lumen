@@ -2,24 +2,21 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../api.dart';
 import '../app_state.dart';
 import '../theme.dart';
 import '../widgets/cards.dart';
 import '../widgets/common.dart';
-import '../widgets/duplicates.dart';
 import 'index_screen.dart';
 import 'models_screen.dart';
 
-/// Settings with tabs: General · Models · Sync · Duplicates.
+/// Settings with tabs: General · Models · Sync.
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key, required this.state, this.tab = 0, this.onTab, this.onOpen, this.onShow});
+  const SettingsScreen({super.key, required this.state, this.tab = 0, this.onTab});
   final AppState state;
-  final int tab; // 0 General, 1 Models, 2 Sync, 3 Duplicates
+  final int tab; // 0 General, 1 Models, 2 Sync
   final ValueChanged<int>? onTab;
-  final void Function(Hit)? onOpen, onShow; // duplicates: open a copy / show it in its folder
 
-  static const tabs = ['General', 'Models', 'Sync', 'Duplicates'];
+  static const tabs = ['General', 'Models', 'Sync'];
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -29,7 +26,7 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
   late final TabController _tabs = TabController(length: SettingsScreen.tabs.length, vsync: this, initialIndex: widget.tab)
     ..addListener(_onTabChanged);
   // Tabs are built the first time they are shown and then kept, so going back to one
-  // doesn't reload it (Duplicates would compare every image again).
+  // doesn't reload it.
   late final Set<int> _opened = {widget.tab};
 
   void _onTabChanged() {
@@ -89,7 +86,6 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
               _tab(Icons.hub_outlined, 'Models'),
               _tab(Icons.sync, 'Sync',
                   dot: st['indexing'] == true ? StatusDot(color: st['index_paused'] == true ? C.blue : C.accent) : null),
-              _tab(Icons.photo_library_outlined, 'Duplicates'),
             ],
           ),
         ]),
@@ -100,7 +96,6 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
             () => GeneralSettings(state: widget.state),
             () => ModelsScreen(state: widget.state, embedded: true),
             () => IndexScreen(state: widget.state, embedded: true),
-            () => DuplicatesView(api: widget.state.api, embedded: true, onOpen: widget.onOpen ?? (_) {}, onShow: widget.onShow ?? (_) {}),
           ].indexed)
             _opened.contains(i) ? page() : const SizedBox.shrink(),
         ]),

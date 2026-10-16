@@ -16,7 +16,6 @@ import 'package:lumen_app/screens/mobile.dart';
 import 'package:lumen_app/screens/models_screen.dart';
 import 'package:lumen_app/screens/settings_screen.dart';
 import 'package:lumen_app/theme.dart';
-import 'package:lumen_app/widgets/duplicates.dart';
 import 'package:lumen_app/widgets/zoom.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -30,7 +29,6 @@ Api fakeApi() => Api('http://laptop', client: MockClient((req) async {
         '/api/settings' => fixture('settings'),
         '/api/index' => fixture('index'),
         '/api/devices' => '[]',
-        '/api/duplicates' => fixture('duplicates'),
         '/api/providers' => fixture('providers'),
         '/api/file' => req.url.queryParameters['path']!.endsWith('.avi') ? fixture('file_video') : fixture('file_tax'),
         _ when p.endsWith('/events') => '[]',
@@ -212,28 +210,24 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Re-index now'), findsOneWidget);
-    await tester.tap(find.text('Duplicates'));
-    await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 100)));
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.textContaining('Nothing is deleted here'), findsOneWidget);
+    expect(find.text('Duplicates'), findsNothing);
     expect(find.text('Tracing'), findsNothing);
     await shot(tester, Scaffold(body: SettingsScreen(state: s, tab: 2)), const Size(1200, 1000), 'desktop_settings_sync');
   });
 
   testWidgets('settings tabs stay put when status refreshes mid-switch, and keep their state', (tester) async {
-    var dupCalls = 0;
+    var providerCalls = 0;
     final api = Api('http://laptop', client: MockClient((req) async {
       final p = req.url.path;
-      if (p == '/api/duplicates') dupCalls++;
+      if (p == '/api/providers') providerCalls++;
       final body = switch (p) {
         '/api/status' => fixture('status'),
         '/api/chats' => fixture('chats'),
         '/api/settings' => fixture('settings'),
         '/api/index' => fixture('index'),
         '/api/devices' => '[]',
-        '/api/providers' => fixture('providers'),
-        '/api/duplicates' => fixture('duplicates'),
+        // no download running, so the tab isn't polling: every call here is a (re)load
+        '/api/providers' => jsonEncode({...jsonDecode(fixture('providers')) as Map, 'pulls': []}),
         _ => '[]',
       };
       return http.Response.bytes(utf8.encode(body), 200, headers: {'content-type': 'application/json'});
@@ -265,18 +259,15 @@ void main() {
     expect(shown(), 1); // still on Models, not pulled back to General
     expect(find.text('What each job uses'), findsOneWidget);
 
-    // Duplicates is compared once, not again every time the tab is shown
-    await tester.tap(find.text('Duplicates'));
-    await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 100)));
-    await settle();
+    // A tab keeps its state: going back to Models doesn't load it again
     await tester.tap(find.text('General'));
     await settle();
-    await tester.tap(find.text('Duplicates'));
+    await tester.tap(find.text('Models'));
     await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 100)));
     await settle();
-    expect(shown(), 3);
-    expect(find.textContaining('Nothing is deleted here'), findsOneWidget);
-    expect(dupCalls, 1);
+    expect(shown(), 1);
+    expect(find.text('What each job uses'), findsOneWidget);
+    expect(providerCalls, 1);
     await tester.pump(const Duration(seconds: 3));
   });
 
@@ -472,23 +463,11 @@ void main() {
     await tester.pump(const Duration(seconds: 5)); // let snackbar / poll timers settle
   });
 
-  testWidgets('desktop chat with image search, a dropped photo and duplicates', (tester) async {
+  testWidgets('desktop chat with image search and a dropped photo', (tester) async {
     final s = await tester.runAsync(() => stateWith('events_images'));
     await shot(tester, DesktopShell(state: s!), const Size(1440, 1800), 'desktop_images');
     expect(find.text('Images like this photo'), findsOneWidget);
     expect(find.byTooltip('Find similar images'), findsWidgets);
-    expect(find.text('Identical files'), findsWidgets);
-  });
-
-  testWidgets('duplicates page', (tester) async {
-    final api = fakeApi();
-    await shot(
-      tester,
-      Scaffold(body: DuplicatesView(api: api, onOpen: (_) {}, onShow: (_) {})),
-      const Size(1200, 1100),
-      'desktop_duplicates',
-    );
-    expect(find.textContaining('could be freed'), findsOneWidget);
   });
 
   testWidgets('approve a move, then undo it', (tester) async {

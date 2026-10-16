@@ -177,7 +177,6 @@ class AppState extends ChangeNotifier {
         'find_in_files' => 'Searching inside your files…',
         'search_images' => 'Looking through your pictures…',
         'find_similar_images' => 'Looking for similar images…',
-        'find_duplicates' => 'Finding duplicate images…',
         'create_folder' || 'create_file' || 'copy_file' || 'move_file' => 'Preparing the change…',
         _ => 'Working…',
       };

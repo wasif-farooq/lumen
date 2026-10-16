@@ -56,7 +56,7 @@ def ollama_options(**opts) -> dict:
 # Video/audio: metadata + frame description + speech transcript (faster-whisper on CPU)
 MEDIA = env("MEDIA", "1") != "0"
 TRANSCRIPTS = env("TRANSCRIPTS", "1") != "0"
-# Image signatures for visual search, similar images and duplicates (CLIP on CPU)
+# Image signatures for visual search and similar images (CLIP on CPU)
 VISUAL = env("VISUAL", "1") != "0"
 WHISPER_MODEL = env("WHISPER_MODEL", "small")
 
