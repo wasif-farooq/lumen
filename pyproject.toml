@@ -1,6 +1,6 @@
 [project]
 name = "lumen"
-version = "0.1.1"
+version = "0.2.0"
 description = "Local AI assistant for your files: find, open and ask about documents, photos and videos."
 license = "MIT"
 readme = "README.md"
@@ -22,8 +22,41 @@ dependencies = [
 ]
 
 [project.scripts]
-lumen = "lumen.__main__:main"
+lumen = "lumen.cli:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.414",
+    "pytest>=9.1.1",
+    "ruff>=0.17.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "ANN"]
+ignore = [
+    "B008",  # FastAPI's Depends(...) in argument defaults is the intended pattern
+    "ANN401",  # Any is allowed where a value really can be anything (tool arguments, JSON)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ANN"]  # tests are read as examples; their fixtures' types are clear from conftest
+"scripts/*" = ["ANN"]
+
+[tool.pyright]
+include = ["lumen"]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+venvPath = "."
+venv = ".venv"

@@ -33,7 +33,15 @@ lumen serve ── chat agent (LangGraph + tools) ── model provider (Ollama 
 
 Data lives in one folder (`~/.local/share/lumen` by default): the index, chats, settings and provider keys.
 
-## Quick start
+## Install
+
+Download the `.deb` or the AppImage from [Releases](https://github.com/wasif-farooq/lumen/releases). Both hold the app and the server; you only need [Ollama](https://ollama.com) (or another model provider) and `ffmpeg`.
+
+```bash
+sudo apt install ./lumen_*_amd64.deb      # then start "Lumen" from the menu, or: lumen-app
+```
+
+## Quick start (from source)
 
 You need Python 3.12 with [uv](https://docs.astral.sh/uv/), [Ollama](https://ollama.com) and `ffmpeg`.
 
@@ -107,8 +115,26 @@ Most settings live in the app (Settings → General / Models / Sync). Environmen
 | `LUMEN_CAPTIONS`, `LUMEN_MEDIA`, `LUMEN_TRANSCRIPTS`, `LUMEN_VISUAL` | `1` | Turn indexing passes off with `0` |
 | `LUMEN_WRITE` | `1` | `0` reports file changes instead of doing them |
 | `OLLAMA_HOST` | `http://127.0.0.1:11434` | Ollama server |
+| `LUMEN_LOG_LEVEL` | `INFO` | `DEBUG` for more detail in the logs |
+| `LUMEN_LOG_DIR` | `~/.local/state/lumen` | Where the logs go |
 
 Copy `.env.example` to `.env` for local overrides (it is git-ignored). Optional [Langfuse](https://langfuse.com) tracing is turned on by its `LANGFUSE_*` keys.
+
+## When something goes wrong
+
+The app says what failed in plain words. When the server gave more, **Details** shows what to try and a request id. The same id is on the matching lines of the server's log, so a problem can be traced from the message to its cause.
+
+Logs are in `~/.local/state/lumen/`:
+
+| File | What writes it |
+|---|---|
+| `lumen.log` | the server: every request (with its id), chats, model calls, errors with tracebacks |
+| `indexer.log` | index runs |
+| `app.log` | the desktop app |
+| `cli.log` | terminal commands (`lumen ask`, `search`, …) |
+| `server.log` | the packaged app's server output (also catches a server that fails to start) |
+
+**Settings → General → Problems** opens this folder and copies a summary for a bug report: versions, which model does what, and the last log lines. It never contains API keys.
 
 ## Run in the background
 
@@ -123,15 +149,51 @@ docker compose run --rm app index
 docker compose run -d --rm --name lumen-api app serve
 ```
 
-## Development
+## Architecture
+
+The server (`lumen/`) is a package per area. Each one exposes a few functions or classes; the rest is internal.
+
+| Package | What it does | Patterns |
+|---|---|---|
+| `core/` | settings (one `Settings` object), saved preferences, typed errors, logging, file types, limits | |
+| `storage/` | the SQLite index (schema, upgrades via `PRAGMA user_version`), the file catalog, chat history | Repository |
+| `indexing/` | an index run: scan, then the AI passes (captions, visual signatures, video/audio), then passages; progress events; power and pause | Pipeline, Strategy (passes, text extractors), Observer (progress) |
+| `search/` | full-text search, passages for questions, visual search, hybrid image search | |
+| `providers/` | Ollama and OpenAI-compatible backends behind one interface, the provider registry, model checks, Ollama downloads | Adapter |
+| `agent/` | the LangGraph agent, its prompts, a chat session, and its tools by area | |
+| `fileops/` | file changes: plan, approve, apply, undo (journal) | Command |
+| `api/` | `create_app()`: routes per area, request and response models, services per app (indexer, chats, pairing), auth, one error shape | Factory, dependency injection |
+| `cli/` | one module per `lumen` command | |
+
+Errors are raised as `core.errors` types (`NotFound`, `InvalidInput`, `Conflict`, …) with a message for people and an optional hint. The API turns them into `{"detail", "error": {code, message, hint, id}}`; anything unexpected becomes a 500 with only an id, and the traceback goes to the log.
+
+The app (`app/lib/`) has the same shape:
+
+- `core/`: `api/` (an `ApiClient` with timeouts and error parsing, one mixin per area), `models/`, `errors/` (`runGuarded`, the reporter for uncaught errors), `logging/`, and `AppState` (the connection to one laptop, with the chats).
+- `features/`: chat, preview, sync, models, settings, pairing and the desktop/phone shells. Each has a `ChangeNotifier` controller, an `*_actions.dart` for dialogs and messages, and widgets that only display.
+- `shared/`: the theme and reusable widgets, including the error views (snackbar with Details, a card with Retry).
+
+## Contributing
 
 ```bash
-uv sync                                  # Python dependencies
-cd app && flutter test                   # UI tests against recorded API responses
-flutter test --update-goldens            # refresh the screenshots in app/test/screens
+uv sync                                       # Python, with the dev tools
+uv run pytest                                 # the server's tests (fast, offline, no models)
+uv run ruff check lumen tests scripts         # lint (the full rule set)
+uv run ruff format lumen tests scripts        # format
+uv run pyright                                # types
+
+cd app
+flutter analyze && flutter test               # the app (or in Docker, see docker/)
+flutter test --update-goldens                 # after an intended UI change: refresh app/test/screens
 ```
 
-The UI tests run the real screens against JSON fixtures in `app/test/fixtures`. They contain made-up demo data; don't record new fixtures from your own files without removing personal details first.
+CI runs all of these on every pull request.
+
+- **Tests describe behaviour through the HTTP API** (and the CLI), the way the app uses Lumen. Only `tests/conftest.py` knows the internal module layout, so code can move without rewriting tests.
+- **Every change of behaviour comes with a test**, and a bug fix with the test that would have caught it.
+- **Raise `core.errors` types** for anything the user should read; never return raw exception text to the app. In the app, run user actions through `runGuarded`.
+- **Keep modules small**: one job per module, about 250 lines at most in Python and 200 in Dart.
+- **Privacy**: the UI fixtures in `app/test/fixtures` are made-up demo data. Don't record new fixtures from your own files without removing personal details first.
 
 ## License
 

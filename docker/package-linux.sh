@@ -45,7 +45,7 @@ rm -rf "$ROOT"/server/python/lib/python3.12/test "$ROOT"/server/python/lib/pytho
        "$ROOT"/server/python/lib/python3.12/tkinter "$ROOT"/server/python/lib/python3.12/turtledemo \
        "$ROOT"/server/python/lib/tcl* "$ROOT"/server/python/lib/tk* "$ROOT"/server/python/lib/itcl* \
        "$ROOT"/server/python/lib/thread* "$ROOT"/server/python/share
-"$PY" -c "import lumen.server, lumen.providers; print('server imports ok')"
+"$PY" -c "import lumen.api.app, lumen.cli, lumen.providers.registry; print('server imports ok')"
 
 install -m 755 /src/packaging/linux/lumen-launcher "$ROOT/lumen-launcher"
 "$PY" /src/packaging/linux/make_icon.py /tmp/icons 64 128 256 512
@@ -74,8 +74,8 @@ Homepage: https://github.com/wasif-farooq/lumen
 Description: Local AI assistant for your files
  Find, open and ask about your documents, photos and videos. Lumen indexes
  document text, describes images and video frames, transcribes speech and
- finds duplicate photos. Models run on Ollama (install it separately from
- ollama.com) or any OpenAI-compatible server.
+ finds pictures that look alike. Models run on Ollama (install it separately
+ from ollama.com) or any OpenAI-compatible server.
 EOF
 dpkg-deb --root-owner-group -Zxz -z6 --build "$DEB" "$OUT/lumen_${VERSION}_amd64.deb"
 
