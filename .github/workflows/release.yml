@@ -1,11 +1,18 @@
 # Builds the Linux packages (.deb and AppImage) and publishes them as a GitHub Release.
-#   Release:  git tag v0.2.0 && git push origin v0.2.0
+#   Automatic: every push to main that passes Checks (auto-release.yml tags it and calls this)
+#   By hand:   git tag v0.3.0 && git push origin v0.3.0
 #   Test build without releasing: Actions → Release → Run workflow
 name: Release
 
 on:
   push:
     tags: ["v*"]
+  workflow_call:
+    inputs:
+      tag:
+        description: "The tag to release (already pushed), e.g. v0.2.1"
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       version:
@@ -15,8 +22,12 @@ on:
 permissions:
   contents: write # create the release and upload its files
 
+env:
+  # The tag being released: the pushed tag, or the one auto-release.yml made. Empty for a test build.
+  TAG: ${{ inputs.tag || (github.ref_type == 'tag' && github.ref_name) || '' }}
+
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -25,10 +36,12 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Build .deb and AppImage (same Docker build as locally)
         env:
-          LUMEN_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
+          LUMEN_VERSION: ${{ env.TAG || inputs.version }}
         run: |
           mkdir -p app/dist/packages
           chmod 777 app/dist/packages   # the build container runs as uid 1000
@@ -36,7 +49,7 @@ jobs:
 
       - name: Checksums
         working-directory: app/dist/packages
-        run: sha256sum *.deb *.AppImage | tee SHA256SUMS
+        run: sha256sum -- *.deb *.AppImage | tee SHA256SUMS
 
       - uses: actions/upload-artifact@v7
         with:
@@ -45,12 +58,12 @@ jobs:
           retention-days: 14
 
       - name: Publish release
-        if: github.ref_type == 'tag'
+        if: env.TAG != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" app/dist/packages/*.deb app/dist/packages/*.AppImage app/dist/packages/SHA256SUMS \
-            --title "Lumen $GITHUB_REF_NAME" \
+          gh release create "$TAG" app/dist/packages/*.deb app/dist/packages/*.AppImage app/dist/packages/SHA256SUMS \
+            --title "Lumen $TAG" \
             --generate-notes \
             --notes "Install the .deb: \`sudo apt install ./lumen_*_amd64.deb\`, then open Lumen from the app menu.
           Or run the AppImage: \`chmod +x Lumen-*.AppImage && ./Lumen-*.AppImage\`.

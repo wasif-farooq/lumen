@@ -37,6 +37,8 @@ fi
 PY="$ROOT/server/python/bin/python3"
 cp -a /src/pyproject.toml /src/uv.lock /src/README.md /src/LICENSE /src/lumen /tmp/srccopy/
 cd /tmp/srccopy
+# The release version, so the installed server reports it (pyproject.toml keeps the last hand-set one)
+sed -i "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
 uv export --frozen --no-dev --no-emit-project --no-hashes -o /tmp/requirements.txt
 uv pip install --python "$PY" --break-system-packages --compile-bytecode -r /tmp/requirements.txt
 uv pip install --python "$PY" --break-system-packages --compile-bytecode --no-deps .
