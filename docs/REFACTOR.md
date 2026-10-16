@@ -99,9 +99,22 @@ build's import check still named the old `lumen.server` (fixed).
 - [x] Dart: `unawaited_futures`, `prefer_final_locals`, `directives_ordering`, `unnecessary_lambdas` on
 - [x] ruff, pyright and Dart lints clean with no ignores in the code (only rule-level choices in `pyproject.toml`: `B008` for FastAPI's `Depends`, `ANN401`, and no `ANN` for tests)
 
-## Phase 5: Verify and release ⬜
+## Phase 5: Verify and release (ready for review)
 
-- [ ] Full test suite, lints, type checks
-- [ ] Packages build; smoke test (start, index, chat, close) for the .deb and the AppImage
-- [ ] README: architecture section and short contributor guide
-- [ ] Pull request reviewed and merged; tag v0.2.0
+- [x] Full test suite, lints, type checks: 130 server tests, 23 app tests, ruff (full rule set + format), pyright, flutter analyze; all green in CI
+- [x] Packages build (from a clean checkout, in Docker): `lumen_0.2.0-rc1_amd64.deb` (171 MB) and `Lumen-0.2.0-rc1-x86_64.AppImage` (226 MB). Smoke test of the packaged server: starts in 0.5 s, indexes, searches, answers a chat with the local model (qwen3.5:2b, 17 s, using its search tool), returns the new error shape, shuts down on SIGTERM, writes its logs. The app binary's libraries all resolve; the window itself was not opened (no display in the build container)
+- [x] README: install, logs and troubleshooting, architecture, contributor guide
+- [ ] Pull request reviewed and merged; tag v0.2.0 (the owner's call: review first)
+
+## Results
+
+| | Before | After |
+|---|---|---|
+| Largest Python module | `server.py`, 947 lines | 195 lines |
+| Largest Dart file | `models_screen.dart`, 888 lines | 184 lines |
+| Server tests | 78 | 130 |
+| App tests | 16 | 23 |
+| Lint (server) | F, E9 only | E, W, F, I, B, UP, SIM, ANN + ruff format + pyright |
+| Lint (app) | recommended + 6 rules | + 7 more (error handling and style), all clean |
+| Errors in the app | raw exception text | the server's message, Details with hint and request id, Retry |
+| Logs | none (prints) | rotating files per part, request ids, "Copy diagnostics" |
