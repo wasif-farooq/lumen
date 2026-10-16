@@ -1,0 +1,54 @@
+# Releases every push to main that passes Checks: tags it with the next version and builds the
+# packages (release.yml). The version goes up from the last v* tag: patch by default, or minor /
+# major when a commit message says [minor] / [major]. No release for [skip release], or when
+# only documentation and CI files changed. The rules are in .github/scripts/next-version.sh.
+name: Auto release
+
+on:
+  workflow_run:
+    workflows: ["Checks"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write # push the tag, create the release
+
+concurrency:
+  group: auto-release # one at a time, in order, so two pushes never get the same version
+  cancel-in-progress: false
+
+jobs:
+  version:
+    # Only pushes to main whose Checks passed (not pull requests, not failed or cancelled runs)
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-24.04
+    outputs:
+      release: ${{ steps.next.outputs.release }}
+      tag: v${{ steps.next.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0 # the whole history and its tags: the version comes from the last tag
+      - id: next
+        run: .github/scripts/next-version.sh "${{ github.event.workflow_run.head_sha }}"
+      - name: Tag
+        if: steps.next.outputs.release == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ steps.next.outputs.version }}" -m "Lumen ${{ steps.next.outputs.version }}" \
+            "${{ github.event.workflow_run.head_sha }}"
+          git push origin "v${{ steps.next.outputs.version }}"
+      - name: Summary
+        env:
+          REASON: ${{ steps.next.outputs.reason }}
+        run: echo "$REASON" >> "$GITHUB_STEP_SUMMARY"
+
+  release:
+    needs: version
+    if: needs.version.outputs.release == 'true'
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.version.outputs.tag }}
+    secrets: inherit
