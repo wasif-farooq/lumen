@@ -74,8 +74,8 @@ Homepage: https://github.com/wasif-farooq/lumen
 Description: Local AI assistant for your files
  Find, open and ask about your documents, photos and videos. Lumen indexes
  document text, describes images and video frames, transcribes speech and
- finds duplicate photos. Models run on Ollama (install it separately from
- ollama.com) or any OpenAI-compatible server.
+ finds pictures that look alike. Models run on Ollama (install it separately
+ from ollama.com) or any OpenAI-compatible server.
 EOF
 dpkg-deb --root-owner-group -Zxz -z6 --build "$DEB" "$OUT/lumen_${VERSION}_amd64.deb"
 

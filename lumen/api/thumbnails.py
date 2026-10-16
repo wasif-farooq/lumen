@@ -15,7 +15,7 @@ def render(p: Path, w: int, t: float | None) -> bytes | None:
     kind = kind_of(ext)
     try:
         if kind == "video":
-            from ..indexing.passes.media import probe
+            from ..indexing.passes.video import probe
 
             at = t if t is not None else max(1.0, probe(str(p))["duration"] * 0.15)
             out = subprocess.run(

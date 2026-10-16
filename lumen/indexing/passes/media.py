@@ -1,202 +1,20 @@
-"""Make video/audio searchable: metadata (ffprobe), what it shows (frames -> vision model)
-and what is said (faster-whisper transcript with timestamps)."""
+"""Make video/audio searchable (one index pass): metadata and what it shows (video.py), what is
+said (speech.py), and the work shared between identical copies of the same file."""
 
 import hashlib
-import json
 import logging
 import os
 import sqlite3
-import subprocess
 import time
-from io import BytesIO
-from typing import TYPE_CHECKING
 
 from ...core import limits
-from ...core.filetypes import MEDIA_EXTS, VIDEO_EXTS
-from ...core.formatting import fmt_time
+from ...core.filetypes import MEDIA_EXTS
 from ...core.settings import settings
 from .. import power
 from ..progress import ItemReport
-
-if TYPE_CHECKING:
-    from faster_whisper import WhisperModel
+from . import speech, video
 
 log = logging.getLogger(__name__)
-
-
-FRAMES = 6  # frames sampled across the video, shown to the model as one 3x2 grid
-FRAME_WIDTH = 320
-
-PROMPT = (
-    'These are {n} frames taken in order from one video ({length}, file name "{name}"). Describe the video '
-    "in 1-2 sentences for a file search index: what kind of video it is (e.g. TV episode, phone recording, "
-    "screen recording, drone shot) and what happens or is shown. Do NOT guess the names of films, shows or "
-    "people; only use names written on screen or in the file name. Then on a new line starting with 'Text:' "
-    "copy important on-screen text, or write 'Text: none'."
-)
-
-
-# ---------- layer 1: metadata ----------
-
-
-def probe(path: str) -> dict:
-    out = subprocess.run(
-        ["ffprobe", "-v", "error", "-print_format", "json", "-show_format", "-show_streams", path],
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
-    data = json.loads(out.stdout or "{}")
-    fmt = data.get("format", {})
-    streams = data.get("streams", [])
-    video = next(
-        (s for s in streams if s.get("codec_type") == "video" and s.get("disposition", {}).get("attached_pic") != 1),
-        None,
-    )
-    tags = {k.lower(): v for k, v in (fmt.get("tags") or {}).items()}
-    return {
-        "duration": float(fmt.get("duration") or 0),
-        "width": video and video.get("width"),
-        "height": video and video.get("height"),
-        "has_video": video is not None,
-        "has_audio": any(s.get("codec_type") == "audio" for s in streams),
-        "created": (tags.get("creation_time") or "")[:10],
-        "title": tags.get("title", ""),
-    }
-
-
-def describe_meta(m: dict, ext: str) -> str:
-    kind = "Video" if m["has_video"] and ext in VIDEO_EXTS else "Audio"
-    parts = [f"{kind}, {fmt_time(m['duration'])} long"]
-    if m["width"]:
-        parts.append(f"{m['width']}x{m['height']}" + (" 4K" if max(m["width"], m["height"]) >= 3840 else ""))
-    if m["created"]:
-        parts.append(f"recorded {m['created']}")
-    if m["title"]:
-        parts.append(f"title {m['title']}")
-    if m["has_video"] and not m["has_audio"]:
-        parts.append("no sound")
-    return ", ".join(parts) + "."
-
-
-# ---------- layer 2: what it shows ----------
-
-
-def frame_grid(path: str, duration: float) -> tuple[bytes, int]:
-    from PIL import Image
-
-    frames = []
-    for i in range(FRAMES):
-        t = duration * (i + 0.5) / FRAMES
-        png = subprocess.run(
-            [
-                "ffmpeg",
-                "-v",
-                "error",
-                "-threads",
-                "1",
-                "-ss",
-                f"{t:.2f}",
-                "-i",
-                path,
-                "-frames:v",
-                "1",
-                "-vf",
-                f"scale={FRAME_WIDTH}:-2",
-                "-f",
-                "image2pipe",
-                "-vcodec",
-                "png",
-                "-",
-            ],
-            capture_output=True,
-            timeout=120,
-        ).stdout
-        if png:
-            frames.append(Image.open(BytesIO(png)).convert("RGB"))
-    if not frames:
-        raise RuntimeError("could not extract frames")
-    w, h = frames[0].size
-    cols = 3
-    rows = (len(frames) + cols - 1) // cols
-    grid = Image.new("RGB", (w * cols, h * rows), "black")
-    for i, f in enumerate(frames):
-        grid.paste(f.resize((w, h)), ((i % cols) * w, (i // cols) * h))
-    buf = BytesIO()
-    grid.save(buf, "PNG")
-    return buf.getvalue(), len(frames)
-
-
-def describe_frames(path: str, duration: float) -> str:
-    from ...providers import backends
-
-    grid, n = frame_grid(path, duration)
-    name = os.path.basename(path)
-    return backends.describe_image(PROMPT.format(n=n, length=fmt_time(duration), name=name), grid)
-
-
-# ---------- layer 3: what is said ----------
-
-_whisper = None
-
-
-def load_whisper() -> "WhisperModel":
-    """Load (downloading on first use) the speech model. Runs on CPU so the GPU stays free for the LLM."""
-    global _whisper
-    if _whisper is None:
-        from faster_whisper import WhisperModel
-
-        _whisper = WhisperModel(
-            settings.whisper_model,
-            device="cpu",
-            compute_type="int8",
-            cpu_threads=power.threads(),
-            download_root=str(settings.data_dir / "models"),
-        )
-    return _whisper
-
-
-def transcribe(path: str) -> tuple[list[tuple[float, float, str]], str]:
-    """Return ([(start, end, text), ...], language)."""
-    import numpy as np
-
-    # Decode with ffmpeg ourselves (16 kHz mono float32): faster-whisper's own PyAV decoding
-    # breaks with PyAV >= 19, and ffmpeg handles more containers anyway.
-    pcm = subprocess.run(
-        [
-            "ffmpeg",
-            "-v",
-            "error",
-            "-threads",
-            str(power.threads()),
-            "-i",
-            path,
-            "-vn",
-            "-ac",
-            "1",
-            "-ar",
-            "16000",
-            "-f",
-            "f32le",
-            "-",
-        ],
-        capture_output=True,
-        timeout=3600,
-    ).stdout
-    audio = np.frombuffer(pcm, dtype=np.float32)
-    if audio.size == 0:
-        return [], ""
-    # temperature=0 only: no slow re-decoding passes on hard audio (saves CPU/battery)
-    segments, info = load_whisper().transcribe(
-        audio, vad_filter=True, beam_size=1, condition_on_previous_text=False, temperature=0.0
-    )
-    if info.language_probability < 0.6:
-        return [], ""  # noise/music, not speech: whisper only produces junk here
-    return [
-        (s.start, s.end, s.text.strip())
-        for s in segments
-        if s.text.strip() and s.no_speech_prob < 0.8 and any(ch.isalnum() for ch in s.text)
-    ], info.language
 
 
 # ---------- the indexing pass ----------
@@ -223,7 +41,7 @@ def process_pending(conn: sqlite3.Connection, progress: ItemReport | None = None
     stats = {"media": 0, "described": 0, "transcribed": 0, "reused": 0, "failed": 0, "seconds": 0.0}
     if rows and transcripts:
         try:
-            load_whisper()
+            speech.load_whisper()
         except Exception as e:
             log.exception("speech model %s could not be loaded", settings.whisper_model)
             # Leave everything pending (not failed) so the next run retries with transcripts
@@ -254,13 +72,13 @@ def process_pending(conn: sqlite3.Connection, progress: ItemReport | None = None
                 conn.commit()
                 continue
 
-            meta = probe(path)
-            parts = [describe_meta(meta, ext)]
+            meta = video.probe(path)
+            parts = [video.describe_meta(meta, ext)]
             say(parts[0])
 
             caption = ""
             if meta["has_video"] and meta["duration"] > 0:
-                caption = describe_frames(path, meta["duration"])
+                caption = video.describe_frames(path, meta["duration"])
                 parts.append("Shows: " + caption)
                 stats["described"] += 1
                 say(caption)
@@ -271,7 +89,7 @@ def process_pending(conn: sqlite3.Connection, progress: ItemReport | None = None
             conn.execute("DELETE FROM segments WHERE file_id=?", (r["id"],))
             if transcripts and meta["has_audio"]:
                 t0 = time.time()
-                segs, lang = transcribe(path)
+                segs, lang = speech.transcribe(path)
                 for start, end, text in segs:
                     sid = conn.execute(
                         "INSERT INTO segments (file_id, start, end, text) VALUES (?,?,?,?)", (r["id"], start, end, text)

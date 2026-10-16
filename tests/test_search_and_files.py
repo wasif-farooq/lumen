@@ -58,3 +58,13 @@ def test_status_summarises_the_index(indexed, local):
 def test_old_file_dates_are_kept(indexed, local):
     [hit] = search(local, "membership")
     assert abs(hit["mtime"] - OLD) < 2
+
+
+def test_a_request_in_plain_words_finds_the_file(env, local):
+    from conftest import index_now
+
+    (env.documents / "CV-alex-2025.pdf").write_bytes(b"%PDF-1.4 not really a pdf")
+    index_now()
+    # "find" and "my" are request words; "cv" is what to look for
+    names = [h["name"] for h in local.get("/api/search", params={"q": "find my CV"}).json()]
+    assert names and names[0] == "CV-alex-2025.pdf"

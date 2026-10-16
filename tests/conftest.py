@@ -40,7 +40,7 @@ from pydantic import Field  # noqa: E402
 from lumen.agent.tools import make_tools  # noqa: E402
 from lumen.api.app import create_app  # noqa: E402
 from lumen.core.settings import settings  # noqa: E402
-from lumen.indexing.passes import media  # noqa: E402
+from lumen.indexing.passes import speech as speech_pass  # noqa: E402
 from lumen.indexing.pipeline import build_index  # noqa: E402
 from lumen.providers import backends, checks, registry  # noqa: E402
 from lumen.search import images as visual  # noqa: E402
@@ -269,8 +269,8 @@ def vision(env, monkeypatch) -> FakeVision:
 def speech(env, monkeypatch):
     """A speech model that 'hears' a few timestamped lines."""
     lines = [(600.0, 605.0, "We should pack the towels."), (605.65, 607.0, "What time does the last train leave?")]
-    monkeypatch.setattr(media, "load_whisper", lambda: None)
-    monkeypatch.setattr(media, "transcribe", lambda path: (lines, "en"))
+    monkeypatch.setattr(speech_pass, "load_whisper", lambda: None)
+    monkeypatch.setattr(speech_pass, "transcribe", lambda path: (lines, "en"))
     return lines
 
 

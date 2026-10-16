@@ -9,6 +9,7 @@ from datetime import datetime
 from ..core.filetypes import DOC_EXTS, MIXED_EXTS, kind_of
 from ..core.formatting import fmt_time, human_size
 from ..storage.db import connect
+from .query import match_exprs, query_terms
 
 
 @dataclass
@@ -100,7 +101,7 @@ def search(
             rows = []
             # Exact phrase first, then "all words", then "any word"
             partial = False
-            for match, is_partial in _match_exprs(terms):
+            for match, is_partial in match_exprs(terms):
                 sql = (
                     "SELECT f.*, snippet(files_fts, 2, '[', ']', '…', 12) AS snip "
                     "FROM files_fts JOIN files f ON f.id = files_fts.rowid "
@@ -136,80 +137,6 @@ def search(
     return hits
 
 
-STOPWORDS = {
-    "a",
-    "an",
-    "the",
-    "and",
-    "or",
-    "of",
-    "to",
-    "in",
-    "on",
-    "at",
-    "for",
-    "with",
-    "by",
-    "from",
-    "is",
-    "are",
-    "was",
-    "be",
-    "it",
-    "its",
-    "this",
-    "that",
-    "what",
-    "which",
-    "who",
-    "where",
-    "when",
-    "how",
-    "does",
-    "do",
-    "did",
-    "i",
-    "me",
-    "my",
-    "you",
-    "your",
-    "we",
-    "our",
-    "he",
-    "she",
-    "they",
-    "them",
-    "someone",
-    "says",
-    "say",
-    "said",
-    "s",
-    # request words: "find my CV" is a search for "cv"
-    "find",
-    "show",
-    "open",
-    "search",
-    "look",
-    "get",
-    "give",
-    "list",
-    "please",
-    "can",
-    "could",
-    "file",
-    "files",
-    "all",
-    "any",
-    "some",
-    "have",
-    "got",
-    "about",
-    "there",
-    "here",
-    "pls",
-}
-
-
 # Multiplier on the (negative) bm25 score: 1 keeps documents on top, smaller values push files down
 RELEVANCE_SQL = (
     "(CASE WHEN f.ext IN (" + ",".join(f"'{e}'" for e in DOC_EXTS) + ") THEN 1.0 "
@@ -217,49 +144,10 @@ RELEVANCE_SQL = (
 )
 
 
-def _term(t: str) -> str:
-    """FTS5 term: prefix match for real words ("invoic" finds "invoices"), exact match for short
-    ones, which would otherwise hit unrelated longer words ("cv" in "cva", "tax" stays prefix)."""
-    return f'"{t}"' if len(t) <= 2 or (len(t) == 3 and not t.isalpha()) or t in _EXACT_SHORT else f'"{t}"*'
-
-
-# 3-letter words that are usually abbreviations, where a prefix match is noise
-_EXACT_SHORT = {"cv", "id", "pdf", "cnic", "ntn", "pay", "car", "bill"}
-
-
-def query_terms(query: str) -> list[str]:
-    """Search words, with TV episode notation unified to how files are named:
-    "season 1 episode 2", "s1e2", "1x02" -> "s01e02"."""
-    q = query.lower()
-
-    def ep(m: re.Match) -> str:
-        return f" s{int(m.group(1)):02d}e{int(m.group(2)):02d} "
-
-    q = re.sub(r"\bseason\s*(\d{1,2})[\s,]*(?:episode|ep|e)\s*(\d{1,3})\b", ep, q)
-    q = re.sub(r"\bs(\d{1,2})\s*e(\d{1,3})\b", ep, q)
-    q = re.sub(r"\b(\d{1,2})x(\d{2,3})\b", ep, q)
-    return re.findall(r"[^\W_]+", q)
-
-
-def _match_exprs(terms: list[str], loose: bool = True) -> list[tuple[str, bool]]:
-    """FTS5 queries from strictest to loosest: exact phrase, all words, any word.
-    Each comes with a flag: True when it is the partial ("any word") step.
-    The looser steps skip filler words, bare numbers and very short words,
-    which would otherwise match nearly everything (dates, resolutions, "it", "1")."""
-    if len(terms) == 1:
-        return [(_term(terms[0]), False)]
-    content = [t for t in terms if t not in STOPWORDS] or terms
-    exprs = [('"' + " ".join(terms) + '"', False), (" AND ".join(_term(t) for t in content), False)]
-    meaningful = [t for t in content if len(t) >= 3 and not t.isdigit()]
-    if loose and len(meaningful) > 1:
-        exprs.append((" OR ".join(_term(t) for t in meaningful), True))
-    return exprs
-
-
 def _locate(conn: sqlite3.Connection, hit: Hit, file_id: int, terms: list[str]) -> None:
     """Find the transcript line that best matches, so the agent can open the video right there."""
     # Strict steps only: a loose match would point at a random line containing one common word
-    for match, _ in _match_exprs(terms, loose=False):
+    for match, _ in match_exprs(terms, loose=False):
         row = conn.execute(
             "SELECT s.start, s.text FROM segments_fts JOIN segments s ON s.id = segments_fts.rowid "
             "WHERE segments_fts MATCH ? AND s.file_id = ? ORDER BY bm25(segments_fts) LIMIT 1",

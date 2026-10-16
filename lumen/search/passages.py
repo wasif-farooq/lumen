@@ -56,7 +56,7 @@ def stem(t: str) -> str:
 
 
 def question_terms(question: str) -> list[str]:
-    from .text import STOPWORDS, query_terms
+    from .query import STOPWORDS, query_terms
 
     terms = []
     for t in query_terms(question):
