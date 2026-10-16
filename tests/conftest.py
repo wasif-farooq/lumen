@@ -310,6 +310,24 @@ def fake_clip(env, monkeypatch, set_settings):
     set_settings(visual=True, power_mode="performance")  # the image pass is skipped in saver mode
 
 
+@pytest.fixture
+def graded_clip(env, monkeypatch, set_settings):
+    """An image model whose scores fall off smoothly: a picture points in a direction set by its
+    brightness (black 0°, white 90°), so two pictures score cos(angle between them). Lets tests
+    place matches at chosen scores. Turns the image pass on."""
+    import numpy as np
+
+    def embed(im):
+        angle = np.asarray(im.convert("L"), dtype=float).mean() / 255 * np.pi / 2
+        v = np.zeros(512, dtype=np.float32)
+        v[0], v[1] = np.cos(angle), np.sin(angle)
+        return v
+
+    monkeypatch.setattr(visual, "_load", lambda: {"fake": True})
+    monkeypatch.setattr(visual, "embed_images", lambda images: np.stack([embed(im) for im in images]))
+    set_settings(visual=True, power_mode="performance")
+
+
 class Indexer:
     """The server's index runner, as tests need to see it."""
 

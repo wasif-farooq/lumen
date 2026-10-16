@@ -120,3 +120,20 @@ def test_scripts_open_their_folder_instead_of_running(indexed, local):
     message = local.post("/api/open", json={"path": str(script)}).json()["message"]
     assert message.startswith("Scripts and programs open their folder instead")
     assert "cleanup.sh" not in message.split("Would have opened:")[1]
+
+
+def test_similar_images_are_only_the_strong_matches_near_the_best_one(env, graded_clip, local):
+    """Image-to-image scores run high (unrelated photos often score 0.6-0.7), so only clear matches
+    count: at least 0.8, and close to the best one."""
+    folder = env.downloads / "shades"
+    folder.mkdir()
+    # brightness -> score against the photo searched with (brightness 20)
+    shades = {"photo": 20, "copy": 26, "other-copy": 30, "lookalike": 100, "unrelated": 150}
+    for name, level in shades.items():
+        noise = np.random.default_rng(level).normal(0, 3, (120, 160))
+        Image.fromarray(np.clip(level + noise, 0, 255).astype("uint8")).save(folder / f"{name}.png")
+    index_now()
+    hits = local.get("/api/images/similar", params={"path": str(folder / "photo.png")}).json()
+    # copies score ~0.999; the look-alike 0.88 is above the floor but far below the best; the
+    # unrelated picture (0.70) and the noisy sample image (0.79) are under the floor
+    assert sorted(names(hits)) == ["copy.png", "other-copy.png"]

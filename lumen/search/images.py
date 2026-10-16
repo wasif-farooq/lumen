@@ -158,4 +158,8 @@ def similar_to(
         skip = source
     else:
         vec = embed_images([open_image(source)])[0]
-    return _top(conn, vec, k, floor=0.6, folder=folder, skip=skip)
+    # Image-image scores run high: half of all pairs in your images score >= 0.55, so a low floor
+    # returned 12 unrelated pictures every time (a scan of fingerprints: its copy 0.98, then filler
+    # at 0.65-0.69). Keep only strong matches near the best one.
+    found = _top(conn, vec, k, floor=0.8, folder=folder, skip=skip)
+    return [(r, s) for r, s in found if s >= found[0][1] - 0.1] if found else []
