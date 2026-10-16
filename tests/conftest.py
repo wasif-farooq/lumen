@@ -417,3 +417,15 @@ def provider_models(env, monkeypatch):
         monkeypatch.setattr(backends, "list_models", lambda pid: models)
 
     return use
+
+
+@pytest.fixture
+def text_limits(env, monkeypatch):
+    """Lower how much text is read per file, so tests of big files stay small and fast."""
+    from lumen.core import limits
+
+    def use(**values: int):
+        for name, value in values.items():
+            monkeypatch.setattr(limits, name, value)
+
+    return use

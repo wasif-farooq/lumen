@@ -13,7 +13,8 @@ SKIP_DIRS = {  # dependency and build folders: never personal files
     "vendor",
     "bower_components",
 }
-MAX_EXTRACT_BYTES = 25 * 1024 * 1024  # don't open files bigger than this for text
-MAX_CONTENT_CHARS = 200_000  # text stored per file in the index
-MAX_PDF_PAGES = 100
+MAX_TEXT_CHARS = 10_000_000  # text kept per file (about 5,000 pages); read in pieces up to this
+MAX_ZIPPED_BYTES = 100 * 1024 * 1024  # office documents and e-books bigger than this are not unpacked
+MAX_UNPACKED_BYTES = 500 * 1024 * 1024  # read at most this much from any one part of a zipped document
+MAX_RENDER_BYTES = 25 * 1024 * 1024  # images and scans bigger than this are not described
 INDEX_KEEP_ALIVE = "2m"  # let Ollama free the GPU soon after indexing instead of holding it 30 min

@@ -100,7 +100,7 @@ def process_pending(conn: sqlite3.Connection, progress: ItemReport | None = None
                     stats["transcribed"] += 1
                 say(f"transcribed {len(segs)} segments ({lang}) in {time.time() - t0:.0f}s")
 
-            content = "\n".join(parts)[: limits.MAX_CONTENT_CHARS]
+            content = "\n".join(parts)[: limits.MAX_TEXT_CHARS]
             conn.execute(
                 "UPDATE files SET duration=?, caption=?, media_done=1, fingerprint=? WHERE id=?",
                 (meta["duration"], caption, fp, r["id"]),
