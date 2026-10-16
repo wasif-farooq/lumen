@@ -4,6 +4,7 @@ server can read while the indexer writes."""
 import sqlite3
 import time
 
+from ..core.filetypes import TEXT_EXTS
 from ..core.settings import settings
 
 SCHEMA = """
@@ -73,9 +74,22 @@ def _drop_image_hashes(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE files DROP COLUMN {col}")
 
 
+def _reread_cut_short_documents(conn: sqlite3.Connection) -> None:
+    """Until 0.2, text was read only from the first 100 PDF pages, the first 200,000 characters and
+    files up to 25 MB, and spreadsheets, slides, OpenDocument files and e-books not at all. Mark
+    those files changed so the next scan reads them again (scanned PDFs keep their descriptions)."""
+    text = ",".join(f"'{e}'" for e in sorted(TEXT_EXTS | {"docx"}))
+    conn.execute(
+        "UPDATE files SET mtime = -1 WHERE ext IN ('xlsx','pptx','odt','ods','odp','epub') "
+        "OR (ext = 'pdf' AND has_text = 1) "
+        f"OR (ext IN ({text}) AND (size > 25 * 1024 * 1024 "
+        "OR id IN (SELECT rowid FROM files_fts WHERE length(content) >= 199000)))"
+    )
+
+
 # Changes to an existing index, run once each in order; PRAGMA user_version records the last
 # one done. New indexes run them too (each step only does what is still needed).
-UPGRADES = [_drop_image_hashes]
+UPGRADES = [_drop_image_hashes, _reread_cut_short_documents]
 
 
 def connect() -> sqlite3.Connection:

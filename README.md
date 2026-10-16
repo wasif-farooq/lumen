@@ -8,7 +8,7 @@ It runs on your laptop with a local model (Ollama) by default. Nothing leaves th
 
 ## What it does
 
-- **Searches everything you index**: file names, the text of PDFs, Word files, notes and code, descriptions of photos and scanned pages, and transcripts of video and audio with timestamps ("play it at 10:05").
+- **Searches everything you index**: file names, the text of PDFs, Word, Excel and PowerPoint files, OpenDocument files, e-books (EPUB), notes and code, descriptions of photos and scanned pages, and transcripts of video and audio with timestamps ("play it at 10:05").
 - **Finds pictures by what they show**, and finds images that look like a given photo (drop one on the chat).
 - **Answers questions about a file** by reading it, and opens files or shows them in their folder.
 - **Organises files with your approval**: create folders and files, copy, move and rename. Every change asks first and can be undone. It cannot delete anything.
@@ -25,7 +25,8 @@ Flutter app (desktop / phone)
 lumen serve ── chat agent (LangGraph + tools) ── model provider (Ollama or OpenAI-compatible)
         │
         └── lumen index (separate low-priority process)
-              files → text (PDF, DOCX, text/code)
+              files → text (PDF, Word, Excel, PowerPoint, OpenDocument, EPUB, text/code),
+                      read in pieces: long PDFs and big files to the end (up to 10M characters each)
               images & scans → descriptions (vision model)
               video & audio → frame descriptions + speech transcripts (faster-whisper, CPU)
               images → visual signatures for search and look-alikes (CLIP, CPU)

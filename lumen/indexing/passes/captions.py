@@ -27,9 +27,9 @@ PROMPT = (
 
 def wants_caption(ext: str, size: int, has_text: bool) -> bool:
     if ext in IMAGE_EXTS:
-        return MIN_IMAGE_BYTES <= size <= limits.MAX_EXTRACT_BYTES
+        return MIN_IMAGE_BYTES <= size <= limits.MAX_RENDER_BYTES
     # PDFs with no text layer are almost always scans
-    return ext == "pdf" and not has_text and size <= limits.MAX_EXTRACT_BYTES
+    return ext == "pdf" and not has_text and size <= limits.MAX_RENDER_BYTES
 
 
 def _render(path: str) -> bytes:
