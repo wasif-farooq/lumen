@@ -25,7 +25,8 @@ from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
 from .providers import backends, checks, pulls, registry
-from .tools import _allowed, _launch
+from .fileops.access import allowed as allowed_path
+from .fileops.access import launch
 from .core import preferences
 from .core.filetypes import MEDIA_EXTS, RUNNABLE_EXTS, kind_of
 from .core.formatting import fmt_time
@@ -33,6 +34,7 @@ from .core.settings import settings
 from .indexing import power
 from .indexing.progress import EVENT_PREFIX, parse_event
 from .search import images
+from .search.hybrid import hybrid_image_search, image_hits
 from .search import text as text_search
 from .storage import catalog, db
 from .storage.chats import NEW_TITLE, ChatStore, checkpointer
@@ -247,7 +249,6 @@ def _friendly(e: Exception) -> str:
 
 def _similar_and_log(chat_id: str, source, label: dict) -> list[dict]:
     """Run a similar-image search for an app button/upload and record it in the chat."""
-    from .tools import image_hits
 
     title = chat_store().title(chat_id)
     if title is None:
@@ -268,7 +269,6 @@ def _similar_and_log(chat_id: str, source, label: dict) -> list[dict]:
 
 @app.get("/api/images/search")
 def image_search(q: str, folder: str = "", limit: int = 12, _=Depends(auth)):
-    from .tools import hybrid_image_search
 
     conn = db.connect()
     try:
@@ -279,7 +279,6 @@ def image_search(q: str, folder: str = "", limit: int = 12, _=Depends(auth)):
 
 @app.get("/api/images/similar")
 def image_similar(path: str, _=Depends(auth)):
-    from .tools import image_hits
 
     p = _checked(path)
     conn = db.connect()
@@ -436,19 +435,19 @@ def open_file(body: OpenReq, _=Depends(auth)):
     p = _checked(body.path)
     ext = p.suffix.lower().lstrip(".")
     if p.is_file() and (ext in RUNNABLE_EXTS or os.access(p, os.X_OK)):
-        return {"ok": True, "message": "Scripts and programs open their folder instead. " + _launch(p.parent)}
-    return {"ok": True, "message": _launch(p, body.start_seconds if ext in MEDIA_EXTS else 0)}
+        return {"ok": True, "message": "Scripts and programs open their folder instead. " + launch(p.parent)}
+    return {"ok": True, "message": launch(p, body.start_seconds if ext in MEDIA_EXTS else 0)}
 
 
 @app.post("/api/show")
 def show_in_folder(body: OpenReq, _=Depends(auth)):
     p = _checked(body.path)
-    return {"ok": True, "message": _launch(p if p.is_dir() else p.parent)}
+    return {"ok": True, "message": launch(p if p.is_dir() else p.parent)}
 
 
 def _checked(path: str) -> Path:
     try:
-        p = _allowed(path)
+        p = allowed_path(path)
     except PermissionError as e:
         raise HTTPException(403, str(e))
     if not p.exists():

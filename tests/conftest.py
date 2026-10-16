@@ -36,7 +36,8 @@ from langchain_core.messages import AIMessage  # noqa: E402
 from langchain_core.outputs import ChatGeneration, ChatResult  # noqa: E402
 from pydantic import Field  # noqa: E402
 
-from lumen import server, tools  # noqa: E402
+from lumen import server  # noqa: E402
+from lumen.agent.tools import make_tools  # noqa: E402
 
 from lumen.providers import backends, checks, registry  # noqa: E402
 from lumen.indexing.passes import media  # noqa: E402
@@ -314,7 +315,7 @@ def app():
 
 
 def agent_tool_names() -> list[str]:
-    return [t.name for t in tools.make_tools(lambda e: None)]
+    return [t.name for t in make_tools(lambda e: None)]
 
 
 OPEN_INDEX_CODE = "from lumen.storage import db; db.connect().close()"  # run in a separate process
