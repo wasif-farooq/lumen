@@ -45,7 +45,7 @@ rm -rf "$ROOT"/server/python/lib/python3.12/test "$ROOT"/server/python/lib/pytho
        "$ROOT"/server/python/lib/python3.12/tkinter "$ROOT"/server/python/lib/python3.12/turtledemo \
        "$ROOT"/server/python/lib/tcl* "$ROOT"/server/python/lib/tk* "$ROOT"/server/python/lib/itcl* \
        "$ROOT"/server/python/lib/thread* "$ROOT"/server/python/share
-"$PY" -c "import lumen.server, lumen.providers; print('server imports ok')"
+"$PY" -c "import lumen.api.app, lumen.cli, lumen.providers.registry; print('server imports ok')"
 
 install -m 755 /src/packaging/linux/lumen-launcher "$ROOT/lumen-launcher"
 "$PY" /src/packaging/linux/make_icon.py /tmp/icons 64 128 256 512

@@ -36,7 +36,7 @@ from langchain_core.messages import AIMessage  # noqa: E402
 from langchain_core.outputs import ChatGeneration, ChatResult  # noqa: E402
 from pydantic import Field  # noqa: E402
 
-from lumen import server  # noqa: E402
+from lumen.api.app import create_app  # noqa: E402
 from lumen.agent.tools import make_tools  # noqa: E402
 
 from lumen.providers import backends, checks, registry  # noqa: E402
@@ -89,6 +89,7 @@ class Env:
         self.data = base / "data"
         self.roots = base / "roots"
         self.files: dict[str, Path] = {}
+        self.app = None
 
     @property
     def documents(self) -> Path:
@@ -125,16 +126,10 @@ def env(tmp_path, monkeypatch) -> Env:
         monkeypatch.setattr(settings, name, value)
     monkeypatch.setattr(settings, "providers", registry.defaults())
 
-    # Server state lives in module globals today: start each test from scratch
-    monkeypatch.setattr(server, "_sessions", {})
-    monkeypatch.setattr(server, "_chats", None)
-    monkeypatch.setattr(server, "_memory", None)
-    monkeypatch.setattr(server, "_state", {"lan": False})
-    monkeypatch.setattr(server, "_pair", {"code": None, "expires": 0.0, "tries": 0})
-    monkeypatch.setattr(server, "_indexer", server.Indexer())
     monkeypatch.setattr(visual, "_cache", {"key": None})
+    e.app = create_app()  # its own services: index runner, chats, pairing
     yield e
-    server._indexer.stop()
+    e.app.state.services.indexer.stop()
 
 
 def index_now() -> dict:
@@ -151,13 +146,13 @@ def indexed(env) -> Env:
 @pytest.fixture
 def local(env) -> TestClient:
     """The desktop app: requests from the laptop itself."""
-    return TestClient(server.app, client=("127.0.0.1", 50000))
+    return TestClient(env.app, client=("127.0.0.1", 50000))
 
 
 @pytest.fixture
 def remote(env) -> TestClient:
     """A phone on the network (not the laptop)."""
-    return TestClient(server.app, client=("192.168.1.50", 50000))
+    return TestClient(env.app, client=("192.168.1.50", 50000))
 
 
 def wait_until(check, timeout: float = 30, step: float = 0.1):
@@ -296,22 +291,26 @@ def fake_clip(env, monkeypatch, set_settings):
 class Indexer:
     """The server's index runner, as tests need to see it."""
 
+    def __init__(self, app):
+        self._runner = app.state.services.indexer
+
     @property
     def process(self):
-        return server._indexer.proc
+        return self._runner.proc
 
     def pretend_running(self, monkeypatch):
-        monkeypatch.setattr(type(server._indexer), "running", property(lambda self: True))
+        monkeypatch.setattr(type(self._runner), "running", property(lambda self: True))
 
 
 @pytest.fixture
 def indexer(env) -> Indexer:
-    return Indexer()
+    return Indexer(env.app)
 
 
-def app():
+@pytest.fixture
+def api(env):
     """The HTTP app (for tests that need the server's start and shutdown)."""
-    return server.app
+    return env.app
 
 
 def agent_tool_names() -> list[str]:

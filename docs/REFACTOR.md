@@ -34,22 +34,32 @@ The tests found two real bugs, fixed in their own commit: on first run the serve
 indexer could open the new index at the same moment and fail ("duplicate column name",
 "database is locked").
 
-## Phase 1: Backend structure 🔄
+## Phase 1: Backend structure ✅
 
 Move code into small modules by responsibility; behaviour unchanged.
 
-- [ ] `core/`: one `Settings` object (no runtime mutation of module globals), paths, errors
-- [ ] `storage/`: connection factory, schema versions, `files_repo`, `chats_repo` (Repository)
-- [ ] `indexing/`: pipeline + one class per pass (Pipeline / Strategy); extractors by file type (Strategy); typed progress events replacing the `@@json` strings (Observer)
+- [x] `core/`: one `Settings` object (no runtime mutation of module globals), preferences, file types, formatting, limits (error types: Phase 2)
+- [x] `storage/`: `db` (connection, schema, upgrades), `catalog` and `chats` (Repository) (schema versions: Phase 4, with the unused-column clean-up)
+- [x] `indexing/`: pipeline + one class per pass (Pipeline / Strategy); extractors by file type (Strategy); typed progress events replacing the `@@json` strings (Observer)
 - [x] Tests for document passages (`find_in_files`, `read_file` with a question), added before moving search
-- [ ] `search/`: text search, query parsing, visual search
-- [ ] `providers/`: common interface, Ollama and OpenAI-compatible adapters (Adapter), registry, checks
-- [ ] `agent/`: graph, prompts, session, `tools/` split by area
-- [ ] `fileops/`: plan / apply / undo (Command)
-- [ ] `api/`: `create_app()` factory with a lifespan handler (replaces the deprecated `on_event("shutdown")`), dependencies injected (auth, local-only, db, settings), typed request/response schemas, `routes/` per area, `services/` for long-lived state (indexer, pairing)
-- [ ] `cli/`: one file per command
-- [ ] No module over ~250 lines; long functions split
-- [ ] All Phase 0 tests pass unchanged; packages build and run
+- [x] `search/`: text search, query parsing, visual search
+- [x] `providers/`: common interface, Ollama and OpenAI-compatible adapters (Adapter), registry, checks
+- [x] `agent/`: graph, prompts, session, `tools/` split by area
+- [x] `fileops/`: plan / apply / undo (Command)
+- [x] `api/`: `create_app()` factory with a lifespan handler (replaces the deprecated `on_event("shutdown")`), dependencies injected (auth, local-only, db, settings), typed request schemas (response models: Phase 4), `routes/` per area, `services/` for long-lived state (indexer, pairing)
+- [x] `cli/`: one file per command
+- [x] No module over ~250 lines; long functions split
+- [x] All behaviour checks still pass (tests now reach internals only through conftest fixtures); package build checked in Phase 5
+
+Result: `lumen/` is now `core/`, `storage/`, `indexing/`, `search/`, `providers/`, `agent/`,
+`fileops/`, `api/` and `cli/`; the largest module is 256 lines (`server.py` was 947). The API's
+state (index runner, chats, pairing) lives in a `Services` object per app instead of module
+globals, and every test gets its own app. 110 tests, including one that resolves every relative
+import (also inside functions).
+
+Behaviour changes, each with a test: pausing a re-scan where nothing changed now holds (it was
+ignored); `lumen index --power` stays an override for that run. Found on the way: the package
+build's import check still named the old `lumen.server` (fixed).
 
 ## Phase 2: Logging and errors (backend) ⬜
 
@@ -78,6 +88,7 @@ Move code into small modules by responsibility; behaviour unchanged.
 ## Phase 4: Clean-up ⬜
 
 - [ ] Remove dead code (including the unused image-hash columns, via a schema version step)
+- [ ] API response models (typed responses for each route)
 - [ ] Magic numbers → named settings or constants
 - [ ] Type hints throughout; docstrings where the "why" isn't obvious; consistent naming
 - [ ] No duplicated helpers

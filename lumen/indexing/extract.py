@@ -8,19 +8,19 @@ from ..core.filetypes import TEXT_EXTS
 
 def extract_text(path: Path, ext: str, size: int) -> str:
     """Return the file's text, or "" when it isn't a readable document."""
-    if size == 0 or size > limits.MAX_EXTRACT_BYTES:
+    extractor = extractor_for(ext)
+    if extractor is None or size == 0 or size > limits.MAX_EXTRACT_BYTES:
         return ""
     try:
-        if ext == "pdf":
-            return _pdf(path)
-        if ext == "docx":
-            return _docx(path)
-        if ext in TEXT_EXTS:
-            return _plain(path)
+        return extractor(path)
     except Exception:
         # Corrupt, encrypted or permission-denied files are indexed by name only
         return ""
-    return ""
+
+
+def extractor_for(ext: str):
+    """The function that reads a file type's text (Strategy), or None for types without text."""
+    return EXTRACTORS.get(ext) or (_plain if ext in TEXT_EXTS else None)
 
 
 def _plain(path: Path) -> str:
@@ -53,3 +53,7 @@ def _docx(path: Path) -> str:
         for row in table.rows:
             lines.append(" | ".join(cell.text for cell in row.cells))
     return "\n".join(lines)[: limits.MAX_CONTENT_CHARS]
+
+
+# File types read by a dedicated extractor; plain-text types (TEXT_EXTS) use _plain
+EXTRACTORS = {"pdf": _pdf, "docx": _docx}

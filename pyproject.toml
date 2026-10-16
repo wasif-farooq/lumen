@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.scripts]
-lumen = "lumen.__main__:main"
+lumen = "lumen.cli:main"
 
 [build-system]
 requires = ["hatchling"]

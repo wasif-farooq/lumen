@@ -4,7 +4,7 @@ import time
 
 from fastapi.testclient import TestClient
 
-from conftest import app, index_now, wait_until
+from conftest import index_now, wait_until
 
 
 def progress(client) -> dict:
@@ -60,9 +60,9 @@ def test_starting_twice_runs_once(env, local):
     assert progress(local)["summary"]["added"] == 6
 
 
-def test_server_shutdown_stops_a_running_index(env, indexer):
+def test_server_shutdown_stops_a_running_index(env, api, indexer):
     many_files(env, 4000)
-    with TestClient(app(), client=("127.0.0.1", 50000)) as client:
+    with TestClient(api, client=("127.0.0.1", 50000)) as client:
         client.post("/api/index")
         client.post("/api/index/pause")
         assert wait_until(lambda: progress(client)["paused"])
