@@ -1,6 +1,7 @@
 """Image signatures (CLIP) for every new image, so pictures can be found by what they show and
 by looking alike. Batches of 8; skipped on battery like the other AI passes."""
 
+import logging
 import time
 
 import numpy as np
@@ -8,6 +9,8 @@ import numpy as np
 from ...core.filetypes import IMAGE_EXTS
 from ...search import images
 from .. import power
+
+log = logging.getLogger(__name__)
 
 
 def process_pending(conn, progress=None) -> dict:
@@ -26,6 +29,7 @@ def process_pending(conn, progress=None) -> dict:
         try:
             images._load()
         except Exception as e:
+            log.exception("image model could not be loaded")
             return {"error": f"image model could not be loaded ({e}); left for next run"}
     for start in range(0, len(todo), 8):
         allowed, why = power.heavy_allowed()
@@ -39,7 +43,8 @@ def process_pending(conn, progress=None) -> dict:
                 im = images.open_image(r["path"])
                 pictures.append(im)
                 batch.append(r)
-            except Exception:
+            except Exception as e:
+                log.debug("can't read image %s: %s", r["path"], e)
                 conn.execute("UPDATE files SET visual_done=0 WHERE id=?", (r["id"],))
                 stats["failed"] += 1
         if pictures:

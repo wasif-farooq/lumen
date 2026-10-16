@@ -1,7 +1,8 @@
 """Chats: history, sending a message (streamed), approving changes, undo."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
+from ...core import errors
 from ... import fileops
 from ..deps import auth, services
 from ..schemas import Ask, Decision, NewChat, UndoReq
@@ -36,10 +37,10 @@ def chat_events(chat_id: str, svc: Services = Depends(services)):
 def send_message(chat_id: str, body: Ask, svc: Services = Depends(services)):
     """Stream the agent's work as server-sent events (one JSON object per `data:` line)."""
     if svc.chats.store.title(chat_id) is None:
-        raise HTTPException(404, "No such chat")
+        raise errors.NotFound("No such chat")
     text = body.text.strip()
     if not text:
-        raise HTTPException(400, "Empty message")
+        raise errors.InvalidInput("Empty message")
     svc.chats.store.name_from_first_message(chat_id, text)
     svc.chats.log(chat_id, "user", {"text": text})
     return svc.chats.stream(chat_id, lambda s: s.stream(text), svc.indexer.start)
@@ -49,7 +50,7 @@ def send_message(chat_id: str, body: Ask, svc: Services = Depends(services)):
 def approve(chat_id: str, body: Decision, svc: Services = Depends(services)):
     """Answer the agent's pending change request (Approve / Cancel) and stream what happens next."""
     if svc.chats.session(chat_id).waiting is None:
-        raise HTTPException(409, "Nothing is waiting for approval in this chat")
+        raise errors.Conflict("Nothing is waiting for approval in this chat")
     svc.chats.log(chat_id, "approval_answer", {"approved": body.approved})
     return svc.chats.stream(chat_id, lambda s: s.resume(body.approved), svc.indexer.start)
 
@@ -64,7 +65,7 @@ def undo_action(action_id: str, body: UndoReq, svc: Services = Depends(services)
     try:
         msg = fileops.undo(action_id)
     except (fileops.FileOpError, OSError) as e:
-        raise HTTPException(400, str(e))
+        raise errors.InvalidInput(str(e))
     if body.chat_id:
         svc.chats.log(body.chat_id, "undone", {"action_id": action_id, "text": msg})
     return {"ok": True, "message": msg}

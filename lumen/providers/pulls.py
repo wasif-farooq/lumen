@@ -1,9 +1,12 @@
 """Downloading Ollama models in the background, with progress the app can show."""
 
+import logging
 import threading
 
 from ..core.settings import settings
 from . import backends
+
+log = logging.getLogger(__name__)
 
 
 _pulls: dict[str, dict] = {}  # model -> {status, completed, total, done, error}
@@ -27,6 +30,7 @@ def pull(model: str) -> dict:
                 st.update(status=ev.status or st["status"], completed=ev.completed or st["completed"], total=ev.total or st["total"])
             st["status"] = "done"
         except Exception as e:
+            log.warning("download of %s failed: %s", model, e)
             st["error"] = backends.why(e) if not isinstance(e, ollama.ResponseError) else str(e.error)
         finally:
             st["done"] = True

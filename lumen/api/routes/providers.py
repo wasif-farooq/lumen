@@ -1,12 +1,16 @@
 """Model providers, which model does each job, model checks and Ollama downloads."""
 
-from fastapi import APIRouter, Depends, HTTPException
+import logging
+from fastapi import APIRouter, Depends
 
+from ...core import errors
 from ...core.settings import settings
 from ...providers import backends, checks, pulls, registry
 from ..deps import auth, local_only, services
 from ..schemas import CheckReq, PullReq, RoleReq
 from ..services import Services
+
+log = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -15,9 +19,9 @@ def _provider_call(fn, *a):
     try:
         return fn(*a)
     except KeyError as e:
-        raise HTTPException(404, e.args[0] if e.args else "Not found")
+        raise errors.NotFound(e.args[0] if e.args else "Not found")
     except ValueError as e:
-        raise HTTPException(400, str(e))
+        raise errors.InvalidInput(str(e))
 
 
 @router.get("/api/providers", dependencies=[Depends(auth)])
@@ -44,9 +48,10 @@ def provider_models(pid: str):
     try:
         return _provider_call(backends.list_models, pid)
     except ConnectionError as e:
-        raise HTTPException(502, str(e) or "Could not connect")
+        raise errors.ProviderUnavailable(str(e) or "Could not connect") from e
     except Exception as e:
-        raise HTTPException(502, backends.why(e))
+        log.warning("listing models of %s failed: %s", pid, e)
+        raise errors.ProviderUnavailable(backends.why(e)) from e
 
 
 @router.post("/api/providers/{pid}/test", dependencies=[Depends(local_only)])

@@ -1,11 +1,14 @@
 """Talking to model providers (Adapter): the local Ollama server and OpenAI-compatible APIs
 look the same to the rest of Lumen: a chat model, describe an image, list models."""
 
+import logging
 import base64
 
 from ..core import limits
 from ..core.settings import settings
 from . import registry
+
+log = logging.getLogger(__name__)
 
 
 def why(e: Exception) -> str:
@@ -64,7 +67,8 @@ class OllamaBackend(Backend):
             try:
                 caps = client.show(m.model).capabilities or []
                 vision, tools = "vision" in caps, "tools" in caps
-            except Exception:
+            except Exception as e:
+                log.debug("capabilities of %s: %s", m.model, e)
                 vision = tools = None  # the list still works; the app just can't grey out unfit models
             out.append({"id": m.model, "size": m.size, "vision": vision, "tools": tools})
         return sorted(out, key=lambda m: m["id"])
@@ -139,4 +143,5 @@ def test(pid: str) -> dict:
         n = len(list_models(pid))
         return {"ok": True, "message": f"Connected · {n} model{'s' if n != 1 else ''} available"}
     except Exception as e:
+        log.info("provider %s test failed: %s", pid, e)
         return {"ok": False, "message": why(e)}

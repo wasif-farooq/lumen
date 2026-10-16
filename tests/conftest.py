@@ -17,6 +17,7 @@ from pathlib import Path
 _BOOT = Path(tempfile.mkdtemp(prefix="lumen-tests-"))
 for key, value in {
     "LUMEN_DATA": str(_BOOT / "data"),
+    "LUMEN_LOG_DIR": str(_BOOT / "logs"),
     "LUMEN_ROOTS": str(_BOOT / "roots"),
     "LUMEN_POWER": "saver",
     "LUMEN_CAPTIONS": "0",
@@ -186,6 +187,8 @@ class ScriptedModel(BaseChatModel):
     def _generate(self, messages, stop=None, run_manager=None, **kwargs):
         self.seen.append(messages)
         msg = self.script.pop(0) if self.script else AIMessage(content="(script ended)")
+        if isinstance(msg, Exception):  # a scripted failure
+            raise msg
         return ChatResult(generations=[ChatGeneration(message=msg)])
 
 
@@ -332,3 +335,32 @@ def setting_in_fresh_python(env_vars: dict, name: str, after_start: bool = False
     out = subprocess.run([sys.executable, "-c", code], env={**clean, **env_vars}, capture_output=True, text=True,
                          check=True)
     return out.stdout.strip()
+
+
+@pytest.fixture
+def logs(env, tmp_path, monkeypatch) -> Path:
+    """The server's log, written to this test's own folder. Returns the folder."""
+    import logging
+
+    from lumen.core import logging as lumen_logging
+
+    folder = tmp_path / "logs"
+    monkeypatch.setenv("LUMEN_LOG_DIR", str(folder))
+    monkeypatch.setenv("LUMEN_LOG_LEVEL", "DEBUG")
+    lumen_logging.setup("server")
+    yield folder
+    for h in list(logging.getLogger("lumen").handlers):
+        logging.getLogger("lumen").removeHandler(h)
+        h.close()
+
+
+def add_route(app, path: str, fn):
+    """A route for tests only (e.g. one that crashes)."""
+    app.add_api_route(path, fn, methods=["GET"])
+
+
+def raise_error(kind: str, message: str, hint: str = ""):
+    """Raise one of Lumen's own errors (InvalidInput, NotFound, …) by name."""
+    from lumen.core import errors
+
+    raise getattr(errors, kind)(message, hint)

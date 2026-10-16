@@ -1,5 +1,6 @@
 """Describe images and scanned PDFs with a local vision model so they become searchable."""
 
+import logging
 import time
 
 import pymupdf
@@ -8,6 +9,8 @@ from ...providers import backends
 from ...core import limits
 from ...core.filetypes import IMAGE_EXTS
 from .. import power
+
+log = logging.getLogger(__name__)
 
 MIN_IMAGE_BYTES = 10 * 1024  # smaller images are usually icons/UI assets: not worth a caption
 MAX_SIDE = 768               # downscale before sending: faster and enough detail
@@ -34,9 +37,10 @@ def _render(path: str) -> bytes:
             page = doc[0]
             zoom = min(1.0 if not doc.is_pdf else 2.0, MAX_SIDE / max(page.rect.width, page.rect.height))
             return page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom)).tobytes("png")
-    except Exception:
+    except Exception as e:
         if path.lower().endswith(".pdf"):
             raise
+        log.debug("PyMuPDF can't open %s (%s); trying PIL", path, e)
     # Formats PyMuPDF can't open (e.g. webp)
     from io import BytesIO
 
@@ -81,6 +85,7 @@ def caption_pending(conn, progress=None) -> dict:
         except ConnectionError:
             raise  # Ollama isn't running: stop, and leave the rest for the next run
         except Exception as e:
+            log.warning("caption failed for %s: %s", r["path"], e)
             caption = ""
             stats["failed"] += 1
             if progress:

@@ -1,5 +1,6 @@
 """Runs the indexer for the app: as a low-priority subprocess, with live progress, pause and stop."""
 
+import logging
 import os
 import subprocess
 import sys
@@ -8,9 +9,12 @@ import time
 from collections import deque
 from pathlib import Path
 
+from ...core import logging as lumen_logging
 from ...core.filetypes import kind_of
 from ...core.settings import settings
 from ...indexing.progress import EVENT_PREFIX, parse_event
+
+log = logging.getLogger(__name__)
 
 
 class Indexer:
@@ -18,13 +22,14 @@ class Indexer:
         self.proc = None
         self.lines = deque(maxlen=300)
         self.started = None
+        self.stopping = False
         self.pause_file = settings.data_dir / "index.pause"
         self.pause_file.unlink(missing_ok=True)  # a flag left by a crash would hold the next run
         self._reset()
 
     def _reset(self):
         self.state = {"phase": None, "done": 0, "total": 0, "path": None, "note": None, "scanned": 0,
-                      "ext": None, "kind": None, "paused": False, "summary": None}
+                      "ext": None, "kind": None, "paused": False, "summary": None, "error": None}
         self.recent = deque(maxlen=8)  # last files finished: {phase, path, note}
         self.phase_started = time.time()
         self.paused_since = None
@@ -45,6 +50,7 @@ class Indexer:
         self.lines.clear()
         self._reset()
         self.started = time.time()
+        self.stopping = False
         # Separate process: its low priority (nice/ionice) never slows the API or chat
         self.proc = subprocess.Popen(
             [sys.executable, "-m", "lumen", "index"],
@@ -53,6 +59,7 @@ class Indexer:
                  "LUMEN_EVENTS": "1", "LUMEN_PAUSE_FILE": str(self.pause_file)},
             start_new_session=True,  # own process group, so Stop also ends its ffmpeg children
         )
+        log.info("indexing started (pid %s): %s", self.proc.pid, ", ".join(map(str, settings.roots)))
         threading.Thread(target=self._pump, daemon=True).start()
 
     def pause(self) -> bool:
@@ -74,6 +81,8 @@ class Indexer:
             return False
         import signal
 
+        self.stopping = True
+        log.info("indexing stopped from the app")
         pgid = os.getpgid(self.proc.pid)
         os.killpg(pgid, signal.SIGTERM)
         try:
@@ -124,6 +133,17 @@ class Indexer:
                 self.lines.append(line)
         self.pause_file.unlink(missing_ok=True)
         self.state["paused"] = False
+        self._finished(self.proc.wait())
+
+    def _finished(self, code: int):
+        """Log how the run ended; a crash becomes an error the app shows."""
+        if code == 0 or self.stopping:
+            log.info("indexing finished (exit %s)", code)
+            return
+        last = next((ln for ln in reversed(self.lines) if ln.strip()), "")
+        log.error("indexing ended with exit %s: %s", code, last)
+        self.state["error"] = (f"Indexing stopped unexpectedly{f': {last}' if last else ''}. "
+                               f"Details: {lumen_logging.log_file('indexer')}")
 
     def progress(self) -> dict:
         st = self.state

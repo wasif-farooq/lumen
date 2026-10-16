@@ -1,6 +1,7 @@
 """Make video/audio searchable: metadata (ffprobe), what it shows (frames -> vision model)
 and what is said (faster-whisper transcript with timestamps)."""
 
+import logging
 import hashlib
 import json
 import os
@@ -13,6 +14,8 @@ from ...core.filetypes import MEDIA_EXTS, VIDEO_EXTS
 from ...core.formatting import fmt_time
 from ...core.settings import settings
 from .. import power
+
+log = logging.getLogger(__name__)
 
 
 FRAMES = 6         # frames sampled across the video, shown to the model as one 3x2 grid
@@ -170,6 +173,7 @@ def process_pending(conn, progress=None, transcripts=True) -> dict:
         try:
             load_whisper()
         except Exception as e:
+            log.exception("speech model %s could not be loaded", settings.whisper_model)
             # Leave everything pending (not failed) so the next run retries with transcripts
             return {"error": f"speech model '{settings.whisper_model}' could not be loaded ({e}); video/audio left for next run"}
     started = time.time()
@@ -230,6 +234,7 @@ def process_pending(conn, progress=None, transcripts=True) -> dict:
         except ConnectionError:
             raise
         except Exception as e:
+            log.warning("video/audio failed for %s: %s", r["path"], e)
             stats["failed"] += 1
             conn.execute("UPDATE files SET media_done=0 WHERE id=?", (r["id"],))
             say(f"failed: {e}")

@@ -2,8 +2,9 @@
 
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
+from ...core import errors
 from ...core import preferences
 from ...core.settings import settings
 from ...storage import catalog
@@ -43,13 +44,13 @@ def index_progress(svc: Services = Depends(services)):
 def _not_while_indexing(svc: Services):
     # A running index already read the folder list and exclusions, so it would undo the change
     if svc.indexer.running:
-        raise HTTPException(409, "Indexing is running. Wait for it to finish, or stop it, then try again.")
+        raise errors.Conflict("Indexing is running. Wait for it to finish, or stop it, then try again.")
 
 
 def _root(path: str) -> Path:
     r = Path(path).expanduser().resolve()
     if r not in settings.roots:
-        raise HTTPException(404, f"Not an indexed folder: {r}")
+        raise errors.NotFound(f"Not an indexed folder: {r}")
     return r
 
 
@@ -59,9 +60,9 @@ def exclude_path(body: PathBody, svc: Services = Depends(services)):
     _not_while_indexing(svc)
     p = Path(body.path).expanduser().resolve()
     if not any(p.is_relative_to(r) for r in settings.roots):
-        raise HTTPException(400, f"Not inside an indexed folder: {p}")
+        raise errors.InvalidInput(f"Not inside an indexed folder: {p}")
     if p in settings.roots:
-        raise HTTPException(400, "To drop a whole folder, remove it from the folder list instead")
+        raise errors.InvalidInput("To drop a whole folder, remove it from the folder list instead")
     removed = catalog.forget(str(p))
     preferences.update({"excluded": [*settings.excluded, str(p)]})
     return {"removed": removed, "excluded": settings.excluded}

@@ -8,6 +8,8 @@
 """
 
 import argparse
+import logging
+import sys
 
 from . import chat, index, search, serve
 
@@ -41,5 +43,23 @@ def main(argv=None):
     a = p.parse_args(argv)
     from ..core.bootstrap import load_saved_state
 
-    load_saved_state()
-    a.fn(a)
+    from ..core import errors
+    from ..core import logging as lumen_logging
+
+    # `serve` sets up its own log; an index run started by the app writes indexer.log
+    if a.cmd != "serve":
+        lumen_logging.setup("indexer" if a.cmd == "index" else "cli")
+    log = logging.getLogger("lumen.cli")
+    try:
+        load_saved_state()
+        a.fn(a)
+    except errors.LumenError as e:
+        log.warning("%s: %s", a.cmd, e.message)
+        sys.exit(f"{e.message}{chr(10) + e.hint if e.hint else ''}")
+    except KeyboardInterrupt:
+        sys.exit(130)
+    except Exception:
+        log.exception("lumen %s failed", a.cmd)
+        print(f"lumen {a.cmd} failed. The details are in {lumen_logging.log_file('cli' if a.cmd != 'index' else 'indexer')}",
+              file=sys.stderr)
+        raise

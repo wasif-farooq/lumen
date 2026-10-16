@@ -6,12 +6,15 @@ Modes (LUMEN_POWER):
   performance always run everything, with more threads
 """
 
+import logging
 import os
 import shutil
 import subprocess
 import time
 from pathlib import Path
 from ..core.settings import settings
+
+log = logging.getLogger(__name__)
 
 
 
@@ -114,8 +117,8 @@ class GpuModel:
 
             loaded = ollama.Client(host=settings.ollama_host).ps().models
             self.was_loaded = any(m.model == self.model or m.name == self.model for m in loaded)
-        except Exception:
-            pass
+        except Exception as e:  # no Ollama: nothing to unload later
+            log.debug("ollama ps: %s", e)
         return self
 
     def __exit__(self, *exc):
@@ -127,8 +130,8 @@ class GpuModel:
             ollama.Client(host=settings.ollama_host).generate(
                 model=self.model, prompt="", keep_alive=0, options=settings.ollama_options()
             )
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug("unloading %s: %s", self.model, e)
 
 
 def _read(p: Path) -> str:

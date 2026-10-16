@@ -1,10 +1,13 @@
 """Preview images for the app: a frame of a video, the first page of a PDF, a scaled image."""
 
+import logging
 import subprocess
 from io import BytesIO
 from pathlib import Path
 
 from ..core.filetypes import kind_of
+
+log = logging.getLogger(__name__)
 
 
 def render(p: Path, w: int, t: float | None) -> bytes | None:
@@ -29,7 +32,8 @@ def render(p: Path, w: int, t: float | None) -> bytes | None:
                     page = doc[0]
                     zoom = w / page.rect.width
                     return page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom)).tobytes("png")
-            except Exception:
+            except Exception as e:
+                log.debug("no PDF thumbnail for %s: %s", p, e)
                 if kind == "pdf":
                     return None
             from PIL import Image
@@ -40,6 +44,7 @@ def render(p: Path, w: int, t: float | None) -> bytes | None:
                 buf = BytesIO()
                 im.save(buf, "PNG")
                 return buf.getvalue()
-    except Exception:
+    except Exception as e:  # unreadable or unsupported image: the app shows the file icon
+        log.debug("no thumbnail for %s: %s", p, e)
         return None
     return None

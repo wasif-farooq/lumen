@@ -1,7 +1,8 @@
 """Who is asking (the laptop itself, a paired phone, or nobody we know), and the app's services."""
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, Request
 
+from ..core import errors
 from .services import Services
 
 
@@ -20,14 +21,14 @@ def auth(request: Request, svc: Services = Depends(services)) -> str:
     token = request.headers.get("authorization", "").removeprefix("Bearer ").strip()
     device = svc.pairing.device_for(token)
     if device is None:
-        raise HTTPException(401, "Not paired")
+        raise errors.NotPaired("Not paired")
     return device
 
 
 def local_only(request: Request):
     """Settings, keys and pairing: only from the laptop itself."""
     if not is_local(request):
-        raise HTTPException(403, "Only from the laptop itself")
+        raise errors.LocalOnly("Only from the laptop itself")
 
 
 def checked_path(path: str):
@@ -37,7 +38,7 @@ def checked_path(path: str):
     try:
         p = allowed(path)
     except PermissionError as e:
-        raise HTTPException(403, str(e))
+        raise errors.OutsideFolders(str(e))
     if not p.exists():
-        raise HTTPException(404, "File not found")
+        raise errors.NotFound("File not found")
     return p

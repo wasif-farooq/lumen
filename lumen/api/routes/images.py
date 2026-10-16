@@ -1,11 +1,13 @@
 """Pictures: search by what they show, similar images, and photos dropped on a chat."""
 
+import logging
 import hashlib
 from io import BytesIO
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 
+from ...core import errors
 from ...core.settings import settings
 from ...search import images
 from ...search.hybrid import hybrid_image_search, image_hits
@@ -14,6 +16,8 @@ from ...storage.chats import NEW_TITLE
 from ..deps import auth, checked_path, services
 from ..schemas import SimilarReq
 from ..services import Services
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(dependencies=[Depends(auth)])
 MAX_UPLOAD_BYTES = 30 * 1024 * 1024
@@ -50,11 +54,12 @@ async def chat_similar_upload(chat_id: str, request: Request, svc: Services = De
     so the chat can show it."""
     data = await request.body()
     if not data or len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(400, "Send one image up to 30 MB")
+        raise errors.InvalidInput("Send one image up to 30 MB")
     try:
         im = images.open_image(data)
-    except Exception:
-        raise HTTPException(400, "That file is not an image I can read")
+    except Exception as e:
+        log.info("upload is not an image: %s", e)
+        raise errors.InvalidInput("That file is not an image I can read") from e
     im = im.convert("RGB")
     im.thumbnail((1024, 1024))
     upload_id = hashlib.sha1(data).hexdigest()[:20]
@@ -69,10 +74,10 @@ async def chat_similar_upload(chat_id: str, request: Request, svc: Services = De
 @router.get("/api/uploads/{upload_id}")
 def get_upload(upload_id: str):
     if not upload_id.isalnum():
-        raise HTTPException(400, "Bad id")
+        raise errors.InvalidInput("Bad id")
     f = settings.data_dir / "uploads" / f"{upload_id}.jpg"
     if not f.exists():
-        raise HTTPException(404, "Not found")
+        raise errors.NotFound("Not found")
     return Response(f.read_bytes(), media_type="image/jpeg", headers={"Cache-Control": "max-age=86400"})
 
 
@@ -80,7 +85,7 @@ def _similar_and_log(svc: Services, chat_id: str, source, label: dict) -> list[d
     """Run a similar-image search for an app button/upload and record it in the chat."""
     title = svc.chats.store.title(chat_id)
     if title is None:
-        raise HTTPException(404, "No such chat")
+        raise errors.NotFound("No such chat")
     conn = db.connect()
     try:
         hits = image_hits(conn, images.similar_to(conn, source))

@@ -2,8 +2,9 @@
 
 import socket
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
+from ...core import errors
 from ..deps import local_only, services
 from ..network import lan_ip
 from ..schemas import PairReq
@@ -23,7 +24,7 @@ def pair_start(svc: Services = Depends(services)):
 def pair(body: PairReq, svc: Services = Depends(services)):
     paired = svc.pairing.pair(body.code, body.name)
     if paired is None:
-        raise HTTPException(403, "Wrong or expired code")
+        raise errors.WrongCode("Wrong or expired code")
     token, device = paired
     return {"token": token, "host": socket.gethostname(), "device_id": device["id"]}
 

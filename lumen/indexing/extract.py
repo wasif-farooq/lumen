@@ -1,9 +1,12 @@
 """Pull plain text out of files so it can be full-text indexed."""
 
+import logging
 from pathlib import Path
 
 from ..core import limits
 from ..core.filetypes import TEXT_EXTS
+
+log = logging.getLogger(__name__)
 
 
 def extract_text(path: Path, ext: str, size: int) -> str:
@@ -13,7 +16,8 @@ def extract_text(path: Path, ext: str, size: int) -> str:
         return ""
     try:
         return extractor(path)
-    except Exception:
+    except Exception as e:
+        log.debug("no text from %s: %s", path, e)
         # Corrupt, encrypted or permission-denied files are indexed by name only
         return ""
 

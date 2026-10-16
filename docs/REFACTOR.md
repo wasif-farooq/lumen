@@ -61,16 +61,18 @@ Behaviour changes, each with a test: pausing a re-scan where nothing changed now
 ignored); `lumen index --power` stays an override for that run. Found on the way: the package
 build's import check still named the old `lumen.server` (fixed).
 
-## Phase 2: Logging and errors (backend) ⬜
+## Phase 2: Logging and errors (backend) ✅
 
-- [ ] Logging setup: logger per module, rotating files in `~/.local/state/lumen/` (`lumen.log`, `indexer.log`), `LUMEN_LOG_LEVEL`
-- [ ] Request logging with an id (method, path, status, time)
-- [ ] Error types: `NotFound`, `InvalidInput`, `Conflict`, `ProviderUnavailable`, `ModelIncompatible`, `LocalOnly`, each with message + hint
-- [ ] One error response shape: `{"error": {"code", "message", "hint", "id"}}` (old `detail` kept during the switch)
-- [ ] Unexpected errors: 500 with an id; full traceback in the log under that id
-- [ ] Every `except Exception` reviewed: narrowed, or kept on purpose with a logged warning and counted in run stats
-- [ ] `print` replaced by logging (CLI keeps its friendly console output)
-- [ ] Tests for error responses and logging
+- [x] Logging setup (`core/logging.py`): logger per module, rotating files in `~/.local/state/lumen/` (`lumen.log`, `indexer.log`, `cli.log`), `LUMEN_LOG_LEVEL`, `LUMEN_LOG_DIR`
+- [x] Request logging with an id (method, path, status, time); the id is in every log line and in `X-Request-ID`
+- [x] Error types (`core/errors.py`): `InvalidInput`, `NotPaired`, `LocalOnly`, `OutsideFolders`, `WrongCode`, `NotFound`, `Conflict`, `ProviderUnavailable`, each with message + hint (`ModelIncompatible` dropped: a failed model check is a result the app shows, not an error)
+- [x] One error response shape: `{"detail", "error": {"code", "message", "hint", "id"}}`, also for FastAPI's own 404/405/422 (`detail` kept for older apps)
+- [x] Unexpected errors: 500 with an id; full traceback in the log under that id, never in the answer
+- [x] Every `except Exception` reviewed: all sit where a library can raise anything (PyMuPDF, PIL, Ollama, OpenAI, whisper); each now logs what it swallowed, and per-file failures were already counted in run stats
+- [x] `print` replaced by logging in `serve` (the CLI keeps its console output; the indexer's `@@` progress lines are its protocol)
+- [x] An index run that crashes shows an error in the app (`error` in `/api/index`) instead of just ending
+- [x] `/api/diagnostics` (laptop only, no keys) for the app's "Copy diagnostics"
+- [x] Tests for error responses and logging (`test_errors_and_logs.py`, 13 tests)
 
 ## Phase 3: App structure and error display ⬜
 

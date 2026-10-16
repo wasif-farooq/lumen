@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from . import errors
 from .routes import chats, files, images, indexing, pairing, providers, status
 from .services import Services
 
@@ -24,6 +25,7 @@ def create_app(lan: bool = False, port: int = 8765) -> FastAPI:
 
     app = FastAPI(title="Lumen", lifespan=lifespan)
     app.state.services = svc
+    errors.install(app)
     for module in (chats, images, files, status, indexing, providers, pairing):
         app.include_router(module.router)
     return app

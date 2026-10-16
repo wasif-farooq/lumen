@@ -1,7 +1,10 @@
 """Does a model work for the job it would do? Chat must call a tool when asked; images & video
 must read the number on a test picture. Tried before a model is used."""
 
+import logging
 from . import backends, registry
+
+log = logging.getLogger(__name__)
 
 
 def _test_image() -> bytes:
@@ -31,6 +34,7 @@ def ollama_caps(p: dict, model: str) -> list[str] | None:
     except Exception as e:
         if "not found" in str(e).lower():
             raise LookupError(f"{model} is not installed in Ollama. Download it first.") from e
+        log.debug("capabilities of %s: %s", model, e)
         return None
 
 
@@ -79,6 +83,7 @@ def check(role: str, provider: str, model: str) -> dict:
             msg = llm.bind_tools([search_files]).invoke(
                 "Find my files about invoices. Use the search_files tool; do not answer in text.")
         except Exception as e:
+            log.info("check of %s (chat): %s", model, e)
             add("Answers", False, backends.why(e))
             return done(False)
         add("Answers", True, "The model replied.")
@@ -95,6 +100,7 @@ def check(role: str, provider: str, model: str) -> dict:
         add("Answers", False, str(e) or "Could not connect")
         return done(False)
     except Exception as e:
+        log.info("check of %s (vision): %s", model, e)
         msg = backends.why(e)
         if any(w in msg.lower() for w in ("image", "vision", "multimodal")):
             msg = "It doesn't accept images: the server says this model has no image support."

@@ -3,9 +3,10 @@
 import hashlib
 import os
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 
+from ...core import errors
 from ...core.filetypes import MEDIA_EXTS, RUNNABLE_EXTS, kind_of
 from ...core.formatting import fmt_time
 from ...core.settings import settings
@@ -64,7 +65,7 @@ def thumb(path: str, w: int = 480, t: float | None = None):
     if not cache.exists():
         png = thumbnails.render(p, w, t)
         if png is None:
-            raise HTTPException(404, "No preview for this file type")
+            raise errors.NotFound("No preview for this file type")
         cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_bytes(png)
     return Response(cache.read_bytes(), media_type="image/png", headers={"Cache-Control": "max-age=86400"})

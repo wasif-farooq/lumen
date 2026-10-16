@@ -1,5 +1,6 @@
 """Chats for the app: the history it shows, one agent session per chat, and streaming a turn."""
 
+import logging
 import json
 import threading
 from collections.abc import Callable, Iterator
@@ -8,6 +9,8 @@ from fastapi.responses import StreamingResponse
 
 from ...core.settings import settings
 from ...storage.chats import ChatStore, checkpointer
+
+log = logging.getLogger(__name__)
 
 
 class Chats:
@@ -68,6 +71,7 @@ class Chats:
                         elif kind == "answer":
                             yield send("answer", {"text": payload or ""})
                 except Exception as e:  # loop limit, Ollama down, …: tell the UI instead of dropping the stream
+                    log.exception("chat %s: the turn failed", chat_id)
                     yield send("error", {"text": friendly(e)})
             if reindex:
                 on_new_files()
