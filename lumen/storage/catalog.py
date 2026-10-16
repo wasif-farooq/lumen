@@ -16,7 +16,7 @@ def drop_segments(conn, file_id: int):
 
 def drop_derived(conn, file_id: int):
     """Everything derived from a file's contents: transcript lines and document passages."""
-    from .. import passages
+    from ..search import passages
 
     drop_segments(conn, file_id)
     passages.drop_file(conn, file_id)

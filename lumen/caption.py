@@ -6,8 +6,8 @@ import pymupdf
 
 from . import power, providers
 from .core import limits
+from .core.filetypes import IMAGE_EXTS
 
-IMAGE_EXTS = {"jpg", "jpeg", "png", "webp", "gif", "bmp", "tif", "tiff"}
 MIN_IMAGE_BYTES = 10 * 1024  # smaller images are usually icons/UI assets: not worth a caption
 MAX_SIDE = 768               # downscale before sending: faster and enough detail
 

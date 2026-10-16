@@ -9,18 +9,13 @@ from urllib.parse import unquote
 from langchain_core.tools import tool
 from langgraph.types import interrupt
 
-from . import index, passages
+from .search import images, passages
+from .search import text as text_search
 from .extract import extract_text
-from .media import MEDIA_EXTS, fmt_time
+from .core.filetypes import IMAGE_EXTS, MEDIA_EXTS, RUNNABLE_EXTS
+from .core.formatting import fmt_time
 from .core.settings import settings
 from .storage import catalog, db
-
-# Opening these could execute them, so we reveal them in the file manager instead
-RUNNABLE_EXTS = {
-    "sh", "bash", "zsh", "py", "pl", "rb", "appimage", "desktop", "run", "bin",
-    "exe", "msi", "bat", "cmd", "jar", "deb", "rpm", "flatpakref", "snap",
-}
-
 
 def _allowed(p: str) -> Path:
     path = Path(p).expanduser().resolve()
@@ -57,7 +52,7 @@ def image_hits(conn, scored: list[tuple[dict, float]]) -> list[dict]:
     for r, score in scored:
         row = conn.execute("SELECT caption FROM files WHERE path=?", (r["path"],)).fetchone()
         caption = (row["caption"] if row else "") or ""
-        hit = index.Hit(r["path"], r["name"], r["ext"], r["size"], r["mtime"], caption[:200]).to_dict()
+        hit = text_search.Hit(r["path"], r["name"], r["ext"], r["size"], r["mtime"], caption[:200]).to_dict()
         hit["score"] = round(score, 3)
         out.append(hit)
     return out
@@ -65,11 +60,8 @@ def image_hits(conn, scored: list[tuple[dict, float]]) -> list[dict]:
 
 def hybrid_image_search(conn, description: str, limit: int = 8, folder: str = "") -> list[dict]:
     """Images matching a description: what they look like (CLIP) fused with their AI description (text)."""
-    from . import visual
-    from .caption import IMAGE_EXTS
-
-    by_look = visual.search_text(conn, description, k=limit * 2, folder=folder)
-    by_text = index.search(description, ext=",".join(sorted(IMAGE_EXTS)), folder=folder, limit=limit * 2)
+    by_look = images.search_text(conn, description, k=limit * 2, folder=folder)
+    by_text = text_search.search(description, ext=",".join(sorted(IMAGE_EXTS)), folder=folder, limit=limit * 2)
     score, info = {}, {}
     for rank, (r, s) in enumerate(by_look):  # reciprocal rank fusion
         score[r["path"]] = score.get(r["path"], 0) + 1 / (10 + rank)
@@ -132,7 +124,7 @@ def make_tools(emit=None, app=False, state=None):
             min_minutes: ONLY if the user asks about length ("longer than 30 minutes"); otherwise leave 0.
             max_minutes: ONLY if the user asks about length ("shorter than 5 minutes"); otherwise leave 0.
         """
-        hits = index.search(
+        hits = text_search.search(
             query, ext, modified_after, modified_before, folder, min(max(limit, 1), 20), min_minutes, max_minutes
         )
         last_results[:] = [h.path for h in hits]
@@ -192,7 +184,7 @@ def make_tools(emit=None, app=False, state=None):
     def _other_files(question: str, skip: Path) -> str:
         conn = db.connect()
         try:
-            found = [r for r in passages.search(conn, question, limit=4, relevance_sql=index._RELEVANCE_SQL) if r["path"] != str(skip)]
+            found = [r for r in passages.search(conn, question, limit=4, relevance_sql=text_search.RELEVANCE_SQL) if r["path"] != str(skip)]
         finally:
             conn.close()
         return "\n\n".join(f"{r['name']}  path: {r['path']}\n{r['text']}" for r in found[:3]) or "(none)"
@@ -210,7 +202,7 @@ def make_tools(emit=None, app=False, state=None):
         """
         conn = db.connect()
         try:
-            found = passages.search(conn, question, limit=6, folder=folder, ext=ext, relevance_sql=index._RELEVANCE_SQL)
+            found = passages.search(conn, question, limit=6, folder=folder, ext=ext, relevance_sql=text_search.RELEVANCE_SQL)
         finally:
             conn.close()
         if not found:
@@ -221,7 +213,7 @@ def make_tools(emit=None, app=False, state=None):
         for r in found:
             best.setdefault(r["path"], r)
         emit({"type": "results", "hits": [
-            index.Hit(r["path"], r["name"], r["ext"], r["size"], r["mtime"], " ".join(r["text"].split())[:220],
+            text_search.Hit(r["path"], r["name"], r["ext"], r["size"], r["mtime"], " ".join(r["text"].split())[:220],
                       r["duration"]).to_dict()
             for r in best.values()
         ]})
@@ -308,12 +300,10 @@ def make_tools(emit=None, app=False, state=None):
         Args:
             target: full image path, or a result number from the last results (e.g. "1").
         """
-        from . import visual
-
         path = resolve(target)
         conn = db.connect()
         try:
-            hits = image_hits(conn, visual.similar_to(conn, str(path)))
+            hits = image_hits(conn, images.similar_to(conn, str(path)))
         finally:
             conn.close()
         last_results[:] = [h["path"] for h in hits]

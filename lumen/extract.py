@@ -1,17 +1,9 @@
 """Pull plain text out of files so it can be full-text indexed."""
 
 from pathlib import Path
+
 from .core import limits
-
-
-
-TEXT_EXTS = {
-    "txt", "md", "markdown", "rst", "csv", "tsv", "json", "jsonl", "yaml", "yml",
-    "toml", "ini", "cfg", "conf", "log", "xml", "html", "htm", "tex", "srt",
-    "py", "js", "ts", "tsx", "jsx", "mjs", "java", "kt", "c", "h", "cpp", "hpp",
-    "cs", "go", "rs", "rb", "php", "swift", "dart", "sh", "bash", "sql", "css",
-    "scss", "vue", "svelte", "ipynb", "gradle", "r", "lua",
-}
+from .core.filetypes import TEXT_EXTS
 
 
 def extract_text(path: Path, ext: str, size: int) -> str:

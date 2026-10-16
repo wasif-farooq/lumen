@@ -9,8 +9,8 @@ from io import BytesIO
 
 import numpy as np
 
-from . import power
-from .core.settings import settings
+from .. import power
+from ..core.settings import settings
 
 REPO = "Xenova/clip-vit-base-patch32"  # quantized ONNX build of OpenAI CLIP ViT-B/32
 FILES = ["onnx/vision_model_quantized.onnx", "onnx/text_model_quantized.onnx", "tokenizer.json"]
@@ -81,7 +81,7 @@ def open_image(source):
     if isinstance(source, (bytes, bytearray)):
         im = Image.open(BytesIO(source))
     else:
-        from .caption import _render
+        from ..caption import _render
 
         im = Image.open(BytesIO(_render(source)))
     im.load()
@@ -92,7 +92,7 @@ def open_image(source):
 
 def process_pending(conn, progress=None) -> dict:
     """Signature + fingerprints for every image that has none yet. Batches of 8, power-aware."""
-    from .caption import IMAGE_EXTS
+    from ..core.filetypes import IMAGE_EXTS
 
     rows = conn.execute(
         f"SELECT id, path, size FROM files WHERE visual_done IS NULL AND ext IN ({','.join('?' * len(IMAGE_EXTS))})",

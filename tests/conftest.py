@@ -36,7 +36,8 @@ from langchain_core.messages import AIMessage  # noqa: E402
 from langchain_core.outputs import ChatGeneration, ChatResult  # noqa: E402
 from pydantic import Field  # noqa: E402
 
-from lumen import index, media, providers, server, tools, visual  # noqa: E402
+from lumen import index, media, providers, server, tools  # noqa: E402
+from lumen.search import images as visual  # noqa: E402
 from lumen.core.settings import settings  # noqa: E402
 
 OLD = time.mktime((2019, 6, 1, 12, 0, 0, 0, 0, -1))

@@ -15,8 +15,9 @@ import sys
 from rich.console import Console
 from rich.markdown import Markdown
 
-from . import index
 from .core.settings import settings
+from . import index
+from .search import text as text_search
 from .storage import catalog
 
 console = Console()
@@ -94,7 +95,7 @@ def cmd_stats(_):
 
 
 def cmd_search(a):
-    hits = index.search(" ".join(a.words), a.ext, a.after, a.before, a.folder, a.limit)
+    hits = text_search.search(" ".join(a.words), a.ext, a.after, a.before, a.folder, a.limit)
     for i, h in enumerate(hits, 1):
         console.print(h.line(i), highlight=False, markup=False)
     if not hits:

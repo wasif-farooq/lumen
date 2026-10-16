@@ -10,11 +10,10 @@ from io import BytesIO
 
 from . import power
 from .core import limits
+from .core.filetypes import MEDIA_EXTS, VIDEO_EXTS
+from .core.formatting import fmt_time
 from .core.settings import settings
 
-VIDEO_EXTS = {"mp4", "mkv", "mov", "webm", "avi", "m4v", "3gp", "wmv", "flv", "mpg", "mpeg"}
-AUDIO_EXTS = {"mp3", "m4a", "wav", "ogg", "opus", "flac", "aac", "wma"}
-MEDIA_EXTS = VIDEO_EXTS | AUDIO_EXTS
 
 FRAMES = 6         # frames sampled across the video, shown to the model as one 3x2 grid
 FRAME_WIDTH = 320
@@ -255,9 +254,3 @@ def _copy_media(conn, src: int, dst: int, fp: str):
     for start, end, text in conn.execute("SELECT start, end, text FROM segments WHERE file_id=?", (src,)).fetchall():
         sid = conn.execute("INSERT INTO segments (file_id, start, end, text) VALUES (?,?,?,?)", (dst, start, end, text)).lastrowid
         conn.execute("INSERT INTO segments_fts (rowid, text) VALUES (?,?)", (sid, text))
-
-
-def fmt_time(seconds: float) -> str:
-    s = int(seconds)
-    h, m, s = s // 3600, s % 3600 // 60, s % 60
-    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"

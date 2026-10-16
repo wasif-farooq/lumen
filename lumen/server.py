@@ -24,11 +24,14 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import index, power, providers
-from .media import MEDIA_EXTS, fmt_time
-from .tools import RUNNABLE_EXTS, _allowed, _launch
+from . import power, providers
+from .tools import _allowed, _launch
 from .core import preferences
+from .core.filetypes import MEDIA_EXTS, RUNNABLE_EXTS, kind_of
+from .core.formatting import fmt_time
 from .core.settings import settings
+from .search import images
+from .search import text as text_search
 from .storage import catalog, db
 from .storage.chats import NEW_TITLE, ChatStore, checkpointer
 
@@ -242,7 +245,6 @@ def _friendly(e: Exception) -> str:
 
 def _similar_and_log(chat_id: str, source, label: dict) -> list[dict]:
     """Run a similar-image search for an app button/upload and record it in the chat."""
-    from . import visual
     from .tools import image_hits
 
     title = chat_store().title(chat_id)
@@ -250,7 +252,7 @@ def _similar_and_log(chat_id: str, source, label: dict) -> list[dict]:
         raise HTTPException(404, "No such chat")
     conn = db.connect()
     try:
-        hits = image_hits(conn, visual.similar_to(conn, source))
+        hits = image_hits(conn, images.similar_to(conn, source))
     finally:
         conn.close()
     if title == NEW_TITLE:
@@ -275,13 +277,12 @@ def image_search(q: str, folder: str = "", limit: int = 12, _=Depends(auth)):
 
 @app.get("/api/images/similar")
 def image_similar(path: str, _=Depends(auth)):
-    from . import visual
     from .tools import image_hits
 
     p = _checked(path)
     conn = db.connect()
     try:
-        return image_hits(conn, visual.similar_to(conn, str(p)))
+        return image_hits(conn, images.similar_to(conn, str(p)))
     finally:
         conn.close()
 
@@ -302,13 +303,12 @@ async def chat_similar_upload(chat_id: str, request: Request, _=Depends(auth)):
     so the chat can show it."""
     from io import BytesIO
 
-    from . import visual
 
     data = await request.body()
     if not data or len(data) > 30 * 1024 * 1024:
         raise HTTPException(400, "Send one image up to 30 MB")
     try:
-        im = visual.open_image(data)
+        im = images.open_image(data)
     except Exception:
         raise HTTPException(400, "That file is not an image I can read")
     im = im.convert("RGB")
@@ -337,7 +337,7 @@ def get_upload(upload_id: str, _=Depends(auth)):
 @app.get("/api/search")
 def search(q: str = "", ext: str = "", after: str = "", before: str = "", folder: str = "", limit: int = 20,
            min_minutes: float = 0, max_minutes: float = 0, _=Depends(auth)):
-    hits = index.search(q, ext, after, before, folder, min(max(limit, 1), 100), min_minutes, max_minutes)
+    hits = text_search.search(q, ext, after, before, folder, min(max(limit, 1), 100), min_minutes, max_minutes)
     return [h.to_dict() for h in hits]
 
 
@@ -361,7 +361,7 @@ def file_info(path: str, at: float | None = None, _=Depends(auth)):
         conn.close()
     text = catalog.indexed_text(str(p))
     return {
-        "path": str(p), "name": p.name, "ext": ext, "kind": index.kind_of(ext), "size": st.st_size, "mtime": st.st_mtime,
+        "path": str(p), "name": p.name, "ext": ext, "kind": kind_of(ext), "size": st.st_size, "mtime": st.st_mtime,
         "folder": str(p.parent), "indexed": row is not None, "searchable": bool(row and (row["has_text"] or row["caption"])),
         "caption": (row["caption"] if row else "") or "", "duration": row["duration"] if row else None,
         "excerpt": text[:1500], "segments": segments,
@@ -388,7 +388,7 @@ def _render_thumb(p: Path, w: int, t: float | None) -> bytes | None:
     from io import BytesIO
 
     ext = p.suffix.lower().lstrip(".")
-    kind = index.kind_of(ext)
+    kind = kind_of(ext)
     try:
         if kind == "video":
             from .media import probe
@@ -593,7 +593,7 @@ class Indexer:
         if "item" in e:
             it = e["item"]
             ext = Path(it["path"]).suffix.lower().lstrip(".")
-            st.update(done=it["done"], total=it["total"], path=it["path"], note=it["note"], ext=ext, kind=index.kind_of(ext))
+            st.update(done=it["done"], total=it["total"], path=it["path"], note=it["note"], ext=ext, kind=kind_of(ext))
             entry = {"phase": st["phase"], "path": it["path"], "note": it["note"], "ext": ext, "kind": st["kind"]}
             if self.recent and self.recent[0]["path"] == it["path"]:
                 self.recent[0] = entry  # video/audio report several steps for one file

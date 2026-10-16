@@ -14,6 +14,7 @@ import time
 import uuid
 from pathlib import Path
 from .core.settings import settings
+from .core.formatting import human_size
 
 
 
@@ -57,14 +58,6 @@ def _target(src: Path, destination: str) -> Path:
     return dst
 
 
-def human(n: int) -> str:
-    for unit in ("B", "KB", "MB", "GB"):
-        if n < 1024:
-            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
-        n /= 1024
-    return f"{n:.1f} TB"
-
-
 # ---------- plans (no changes yet) ----------
 
 def plan_create_folder(path: str) -> dict:
@@ -85,7 +78,7 @@ def plan_create_file(path: str, content: str) -> dict:
         raise FileOpError("That text is over 1 MB; I only create small text files.")
     preview = content if len(content) <= 400 else content[:400] + "…"
     return {"op": "create_file", "dst": str(p), "content": content, "size": len(data),
-            "summary": f"Create file {p} ({human(len(data))})", "preview": preview}
+            "summary": f"Create file {p} ({human_size(len(data))})", "preview": preview}
 
 
 def plan_copy(source: str, destination: str) -> dict:
@@ -95,10 +88,10 @@ def plan_copy(source: str, destination: str) -> dict:
     dst = _target(src, destination)
     size = _size(src)
     if size > MAX_COPY_BYTES:
-        raise FileOpError(f"That is {human(size)}; I don't copy more than {human(MAX_COPY_BYTES)} at once.")
+        raise FileOpError(f"That is {human_size(size)}; I don't copy more than {human_size(MAX_COPY_BYTES)} at once.")
     kind = "folder" if src.is_dir() else "file"
     return {"op": "copy", "src": str(src), "dst": str(dst), "size": size,
-            "summary": f"Copy {kind} {src} → {dst} ({human(size)})"}
+            "summary": f"Copy {kind} {src} → {dst} ({human_size(size)})"}
 
 
 def plan_move(source: str, destination: str) -> dict:
