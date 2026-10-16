@@ -12,6 +12,8 @@ VERSION="${VERSION#v}"
 OUT=/out
 ROOT=/tmp/lumen          # becomes /opt/lumen in the .deb, and the AppDir
 export UV_CACHE_DIR="${UV_CACHE_DIR:-/home/ubuntu/.cache/uv}"
+export UV_LINK_MODE=copy  # the bundle must hold real files, not links into uv's cache
+export UV_PYTHON_INSTALL_DIR=/tmp/uvpython
 echo "== Lumen $VERSION"
 
 rm -rf "$ROOT" /tmp/srccopy && mkdir -p "$ROOT/server" /tmp/srccopy
@@ -24,8 +26,14 @@ flutter build linux --release
 cp -a build/linux/x64/release/bundle "$ROOT/app"
 
 # --- 2. Self-contained Python with the server ---
-uv python install 3.12 --install-dir /tmp/uvpython
-cp -a "$(ls -d /tmp/uvpython/cpython-3.12*-linux-x86_64-gnu | head -1)" "$ROOT/server/python"
+uv python install 3.12
+# uv also makes a "cpython-3.12-..." link to the versioned folder: copy the real folder
+PYDIR="$(readlink -f "$(dirname "$(uv python find --managed-python 3.12)")/..")"
+case "$PYDIR" in /tmp/uvpython/*) ;; *) echo "unexpected Python location: $PYDIR" >&2; exit 1 ;; esac
+cp -a "$PYDIR" "$ROOT/server/python"
+if [ -L "$ROOT/server/python" ] || find "$ROOT/server/python" -type l -lname '/*' | grep -q .; then
+    echo "the bundled Python contains absolute links; it would not work once installed" >&2; exit 1
+fi
 PY="$ROOT/server/python/bin/python3"
 cp -a /src/pyproject.toml /src/uv.lock /src/README.md /src/LICENSE /src/lumen /tmp/srccopy/
 cd /tmp/srccopy
