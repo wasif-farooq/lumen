@@ -22,7 +22,9 @@ jobs:
         with:
           enable-cache: true
       - name: Install
-        run: uv sync --frozen
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg  # the video tests make a tiny clip
+          uv sync --frozen
       - name: Lint (real errors; the full rule set from the Phase 4 clean-up)
         run: uv run ruff check --select F,E9 lumen tests scripts
       - name: Tests
