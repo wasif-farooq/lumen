@@ -1,4 +1,6 @@
-# Low-power background indexing. Install: see deploy/README in chat / `systemctl --user` commands.
+# Low-power background indexing, started by lumen-index.timer. Install (set WorkingDirectory first):
+#   cp deploy/lumen-index.service deploy/lumen-index.timer ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now lumen-index.timer
 [Unit]
 Description=Lumen file indexer (low priority)
 

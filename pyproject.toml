@@ -1,6 +1,9 @@
 [project]
 name = "lumen"
 version = "0.1.0"
+description = "Local AI assistant for your files: find, open and ask about documents, photos and videos."
+license = "MIT"
+readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.143.2",

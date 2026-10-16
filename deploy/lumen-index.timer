@@ -1,3 +1,4 @@
+# Runs lumen-index.service; install instructions are in that file.
 [Unit]
 Description=Run Lumen indexer every 30 minutes
 
