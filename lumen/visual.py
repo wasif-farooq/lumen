@@ -9,7 +9,8 @@ from io import BytesIO
 
 import numpy as np
 
-from . import config, power
+from . import power
+from .core.settings import settings
 
 REPO = "Xenova/clip-vit-base-patch32"  # quantized ONNX build of OpenAI CLIP ViT-B/32
 FILES = ["onnx/vision_model_quantized.onnx", "onnx/text_model_quantized.onnx", "tokenizer.json"]
@@ -21,7 +22,7 @@ _models = {}
 
 
 def _model_dir():
-    return config.DATA_DIR / "models" / "clip"
+    return settings.data_dir / "models" / "clip"
 
 
 def _load():

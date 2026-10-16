@@ -10,8 +10,9 @@ from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.types import Command
 
-from . import config, providers
+from . import providers
 from .tools import make_tools
+from .core.settings import settings
 
 SYSTEM_PROMPT = """You are Finder, a local assistant that finds and opens the user's files.
 Today is {today}. Indexed folders: {roots}.
@@ -56,18 +57,18 @@ APP_NOTE = """
 
 def build_agent(checkpointer=None, emit=None, app=False, state=None):
     llm = providers.chat_model(
-        num_ctx=config.NUM_CTX,
+        num_ctx=settings.num_ctx,
         temperature=0,
         reasoning=False,  # no "thinking" before tool calls: much faster on a small GPU
         keep_alive="30m",
-        **({"num_gpu": 0} if config.CPU_ONLY else {}),
+        **({"num_gpu": 0} if settings.cpu_only else {}),
     )
     tools = make_tools(emit, app=app, state=state)
     llm_with_tools = llm.bind_tools(tools)
-    system = SYSTEM_PROMPT.format(today=date.today().isoformat(), roots=", ".join(map(str, config.ROOTS)))
+    system = SYSTEM_PROMPT.format(today=date.today().isoformat(), roots=", ".join(map(str, settings.roots)))
     if app:
         system += APP_NOTE
-    if config.OPEN_MODE != "xdg":
+    if settings.open_mode != "xdg":
         system += ("\n- TEST MODE: open_file and show_in_folder cannot open anything here. Never say a file "
                    "was opened; say it was not opened (test mode) and give its full path.")
 

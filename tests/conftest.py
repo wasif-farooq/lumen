@@ -36,7 +36,8 @@ from langchain_core.messages import AIMessage  # noqa: E402
 from langchain_core.outputs import ChatGeneration, ChatResult  # noqa: E402
 from pydantic import Field  # noqa: E402
 
-from lumen import config, index, providers, server, visual  # noqa: E402
+from lumen import index, media, providers, server, tools, visual  # noqa: E402
+from lumen.core.settings import settings  # noqa: E402
 
 OLD = time.mktime((2019, 6, 1, 12, 0, 0, 0, 0, -1))
 
@@ -109,14 +110,14 @@ def env(tmp_path, monkeypatch) -> Env:
 
     # In-process settings
     for name, value in {
-        "DATA_DIR": e.data, "DB_PATH": e.data / "index.db", "ROOTS": roots, "PAUSED_ROOTS": [],
-        "EXCLUDED": [], "POWER_MODE": "saver", "CAPTIONS": False, "MEDIA": False, "VISUAL": False,
-        "TRANSCRIPTS": False, "OPEN_MODE": "print", "WRITE_ENABLED": True, "CPU_ONLY": False,
-        "OLLAMA_HOST": "http://127.0.0.1:9", "AGENT_PROVIDER": "ollama", "VISION_PROVIDER": "ollama",
-        "AGENT_MODEL": "qwen3.5:2b", "CAPTION_MODEL": "qwen3.5:2b", "WHISPER_MODEL": "small",
+        "data_dir": e.data, "roots": roots, "paused_roots": [], "excluded": [], "power_mode": "saver",
+        "captions": False, "media": False, "visual": False, "transcripts": False, "open_mode": "print",
+        "write_enabled": True, "cpu_only": False, "threads": 4, "ollama_host": "http://127.0.0.1:9",
+        "agent_provider": "ollama", "vision_provider": "ollama", "agent_model": "qwen3.5:2b",
+        "caption_model": "qwen3.5:2b", "whisper_model": "small",
     }.items():
-        monkeypatch.setattr(config, name, value)
-    monkeypatch.setattr(config, "PROVIDERS", providers._defaults())
+        monkeypatch.setattr(settings, name, value)
+    monkeypatch.setattr(settings, "providers", providers._defaults())
 
     # Server state lives in module globals today: start each test from scratch
     monkeypatch.setattr(server, "_sessions", {})
@@ -200,3 +201,129 @@ def sse(response) -> list[dict]:
     import json
 
     return [json.loads(line[6:]) for line in response.text.splitlines() if line.startswith("data: ")]
+
+
+# ---------- hooks for tests: every reach into Lumen's internals goes through these ----------
+
+@pytest.fixture
+def set_settings(env, monkeypatch):
+    """Change settings for one test, e.g. set_settings(captions=True)."""
+    def apply(**values):
+        for name, value in values.items():
+            assert hasattr(settings, name), name
+            monkeypatch.setattr(settings, name, value)
+    return apply
+
+
+@pytest.fixture
+def ai_on(set_settings):
+    """Plugged in, AI passes allowed (the default test setup is 'saver')."""
+    set_settings(power_mode="performance")
+    return set_settings
+
+
+class FakeVision:
+    """A vision model: set `.reply` (text) or `.error` (exception); counts `.calls`."""
+
+    def __init__(self):
+        self.reply = "A red sports car parked by the sea. Text: none"
+        self.error: Exception | None = None
+        self.calls = 0
+
+    def __call__(self, prompt, png, *a, **k):
+        self.calls += 1
+        if self.error:
+            raise self.error
+        return self.reply
+
+
+@pytest.fixture
+def vision(env, monkeypatch) -> FakeVision:
+    fake = FakeVision()
+    monkeypatch.setattr(providers, "describe_image", fake)
+    return fake
+
+
+@pytest.fixture
+def speech(env, monkeypatch):
+    """A speech model that 'hears' a few timestamped lines."""
+    lines = [(600.0, 605.0, "We should pack the towels."), (605.65, 607.0, "What time does the last train leave?")]
+    monkeypatch.setattr(media, "load_whisper", lambda: None)
+    monkeypatch.setattr(media, "transcribe", lambda path: (lines, "en"))
+    return lines
+
+
+@pytest.fixture
+def ollama_caps(env, monkeypatch):
+    """What Ollama reports a model can do: call with a list, e.g. ollama_caps(["completion", "tools"])."""
+    def use(caps):
+        monkeypatch.setattr(providers, "_ollama_caps", lambda p, m: caps)
+    return use
+
+
+@pytest.fixture
+def fake_clip(env, monkeypatch, set_settings):
+    """An image model that only knows colour: an image points at its strongest colour channel
+    (grey images at none), text at the colour it names. Turns the image pass on."""
+    import numpy as np
+
+    colours = ("red", "green", "blue")
+
+    def one_hot(i):
+        v = np.zeros(512, dtype=np.float32)
+        v[i] = 1.0
+        return v
+
+    def colour_of(im) -> int:
+        mean = np.asarray(im.convert("RGB"), dtype=float).mean((0, 1))
+        return int(np.argmax(mean)) if mean.max() - mean.min() > 40 else 20
+
+    def embed_text(text):
+        return next((one_hot(i) for i, c in enumerate(colours) if c in text), one_hot(10))
+
+    monkeypatch.setattr(visual, "_load", lambda: {"fake": True})
+    monkeypatch.setattr(visual, "embed_images", lambda images: np.stack([one_hot(colour_of(im)) for im in images]))
+    monkeypatch.setattr(visual, "embed_text", embed_text)
+    set_settings(visual=True, power_mode="performance")  # the image pass is skipped in saver mode
+
+
+class Indexer:
+    """The server's index runner, as tests need to see it."""
+
+    @property
+    def process(self):
+        return server._indexer.proc
+
+    def pretend_running(self, monkeypatch):
+        monkeypatch.setattr(type(server._indexer), "running", property(lambda self: True))
+
+
+@pytest.fixture
+def indexer(env) -> Indexer:
+    return Indexer()
+
+
+def app():
+    """The HTTP app (for tests that need the server's start and shutdown)."""
+    return server.app
+
+
+def agent_tool_names() -> list[str]:
+    return [t.name for t in tools.make_tools(lambda e: None)]
+
+
+OPEN_INDEX_CODE = "from lumen import index; index.connect().close()"  # run in a separate process
+
+
+def setting_in_fresh_python(env_vars: dict, name: str, after_start: bool = False) -> str:
+    """A setting as a new process sees it (settings read the environment at start). With
+    `after_start`, also after loading what was saved in the data folder, as the server and CLI do."""
+    import subprocess
+    import sys
+
+    clean = {k: v for k, v in os.environ.items() if not k.startswith(("LUMEN_", "OS_OPERATOR_"))}
+    load = "from lumen.core.bootstrap import load_saved_state; load_saved_state(); " if after_start else ""
+    code = f"{load}from lumen.core.settings import settings; print(settings.{name})"
+    out = subprocess.run([sys.executable, "-c", code], env={**clean, **env_vars}, capture_output=True, text=True,
+                         check=True)
+    return out.stdout.strip()

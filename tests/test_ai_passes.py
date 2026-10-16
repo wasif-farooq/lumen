@@ -10,39 +10,8 @@ from conftest import index_now
 needs_ffmpeg = pytest.mark.skipif(not shutil.which("ffmpeg"), reason="needs ffmpeg")
 
 
-@pytest.fixture
-def ai_on(env, monkeypatch):
-    """Plugged in, AI passes allowed (the default test setup is 'saver')."""
-    from lumen import config
-
-    monkeypatch.setattr(config, "POWER_MODE", "performance")
-    return config
-
-
-@pytest.fixture
-def vision(monkeypatch):
-    """A fake vision model: set `.reply` (text) or `.error` (exception) before indexing."""
-    from lumen import providers
-
-    class Fake:
-        def __init__(self):
-            self.reply = "A red sports car parked by the sea. Text: none"
-            self.error: Exception | None = None
-            self.calls = 0
-
-        def __call__(self, prompt, png, *a, **k):
-            self.calls += 1
-            if self.error:
-                raise self.error
-            return self.reply
-
-    fake = Fake()
-    monkeypatch.setattr(providers, "describe_image", fake)
-    return fake
-
-
 def test_images_get_a_searchable_description(env, local, ai_on, vision, monkeypatch):
-    monkeypatch.setattr(ai_on, "CAPTIONS", True)
+    ai_on(captions=True)
     stats = index_now()
     assert stats["captions"]["captioned"] == 1  # holiday.png (the PDF has a text layer)
     [hit] = local.get("/api/search", params={"q": "sports car"}).json()
@@ -53,7 +22,7 @@ def test_images_get_a_searchable_description(env, local, ai_on, vision, monkeypa
 
 
 def test_a_failing_description_is_counted_and_not_retried(env, ai_on, vision, monkeypatch):
-    monkeypatch.setattr(ai_on, "CAPTIONS", True)
+    ai_on(captions=True)
     vision.error = RuntimeError("model crashed")
     assert index_now()["captions"]["failed"] == 1
     vision.error = None
@@ -61,17 +30,15 @@ def test_a_failing_description_is_counted_and_not_retried(env, ai_on, vision, mo
 
 
 def test_unreachable_vision_model_skips_the_pass_with_a_message(env, ai_on, vision, monkeypatch):
-    monkeypatch.setattr(ai_on, "CAPTIONS", True)
+    ai_on(captions=True)
     vision.error = ConnectionError("refused")
     stats = index_now()
     assert "not reachable" in stats["captions"]["error"]
     assert stats["added"] == 6  # files and their text are still indexed
 
 
-def test_on_battery_saver_mode_skips_ai_work(env, vision, monkeypatch):
-    from lumen import config
-
-    monkeypatch.setattr(config, "CAPTIONS", True)  # wanted, but the power mode says no
+def test_on_battery_saver_mode_skips_ai_work(env, vision, set_settings):
+    set_settings(captions=True)  # wanted, but the power mode says no
     stats = index_now()
     assert stats["heavy_skipped"] == "power mode is 'saver'"
     assert vision.calls == 0
@@ -89,21 +56,9 @@ def clip(env):
     return path
 
 
-@pytest.fixture
-def speech(monkeypatch):
-    """A fake speech model that 'hears' a few timestamped lines."""
-    from lumen import media
-
-    lines = [(600.0, 605.0, "We should pack the towels."), (605.65, 607.0, "What time does the last train leave?")]
-    monkeypatch.setattr(media, "load_whisper", lambda: None)
-    monkeypatch.setattr(media, "transcribe", lambda path: (lines, "en"))
-    return lines
-
-
 @needs_ffmpeg
 def test_videos_get_frames_described_and_speech_searchable(env, local, ai_on, vision, speech, clip, monkeypatch):
-    monkeypatch.setattr(ai_on, "MEDIA", True)
-    monkeypatch.setattr(ai_on, "TRANSCRIPTS", True)
+    ai_on(media=True, transcripts=True)
     vision.reply = "Home video of a beach with waves. Text: none"
     m = index_now()["media"]
     assert (m["media"], m["described"], m["transcribed"], m["failed"]) == (1, 1, 1, 0)
@@ -120,8 +75,7 @@ def test_videos_get_frames_described_and_speech_searchable(env, local, ai_on, vi
 
 @needs_ffmpeg
 def test_an_identical_copy_of_a_video_reuses_the_work(env, ai_on, vision, speech, clip, monkeypatch):
-    monkeypatch.setattr(ai_on, "MEDIA", True)
-    monkeypatch.setattr(ai_on, "TRANSCRIPTS", True)
+    ai_on(media=True, transcripts=True)
     shutil.copy2(clip, env.documents / "beach-trip-copy.mp4")
     m = index_now()["media"]
     assert m["media"] == 1 and m["reused"] == 1 and vision.calls == 1

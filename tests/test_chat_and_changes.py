@@ -2,7 +2,7 @@
 
 from langchain_core.messages import AIMessage
 
-from conftest import sse, tool_call
+from conftest import agent_tool_names, sse, tool_call
 
 
 def new_chat(client) -> str:
@@ -116,10 +116,8 @@ def test_never_overwrites(indexed, local, model):
     assert "printer paper" in existing.read_text()
 
 
-def test_test_mode_reports_instead_of_changing(indexed, local, model, monkeypatch):
-    from lumen import config
-
-    monkeypatch.setattr(config, "WRITE_ENABLED", False)
+def test_test_mode_reports_instead_of_changing(indexed, local, model, set_settings):
+    set_settings(write_enabled=False)
     target = indexed.documents / "DryRun"
     model.script = [tool_call("create_folder", path=str(target)), AIMessage(content="Done (test mode).")]
     chat = new_chat(local)
@@ -130,8 +128,6 @@ def test_test_mode_reports_instead_of_changing(indexed, local, model, monkeypatc
 
 
 def test_the_agent_has_no_way_to_delete(env):
-    from lumen.tools import make_tools
-
-    names = [t.name for t in make_tools(lambda e: None)]
+    names = agent_tool_names()
     assert names  # sanity
     assert not [n for n in names if any(w in n for w in ("delete", "remove", "trash", "unlink"))]

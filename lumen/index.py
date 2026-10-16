@@ -9,8 +9,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from . import config
 from .extract import extract_text
+from .core import limits
+from .core.settings import settings
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS files (
@@ -68,8 +69,8 @@ LATER_COLUMNS = {
 
 
 def connect() -> sqlite3.Connection:
-    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(config.DB_PATH)
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(settings.db_path)
     conn.row_factory = sqlite3.Row
     _use_wal(conn)
     conn.executescript(SCHEMA)
@@ -141,10 +142,10 @@ def forget(path: str) -> int:
 
 
 def _walk(root: Path):
-    excluded = set(config.EXCLUDED)
+    excluded = set(settings.excluded)
     for dirpath, dirnames, filenames in os.walk(root):
         # Prune hidden, dependency/build and excluded folders in place
-        dirnames[:] = [d for d in dirnames if not d.startswith(".") and d not in config.SKIP_DIRS
+        dirnames[:] = [d for d in dirnames if not d.startswith(".") and d not in limits.SKIP_DIRS
                        and os.path.join(dirpath, d) not in excluded]
         for fn in filenames:
             if not fn.startswith(".") and os.path.join(dirpath, fn) not in excluded:
@@ -162,7 +163,7 @@ def build_index(roots=None, progress=None, captions=None, on_caption=None, media
 
     phase = on_phase or (lambda name: None)
     power.low_priority()
-    roots = roots or config.ROOTS
+    roots = roots or settings.roots
     conn = connect()
     known = {r["path"]: (r["id"], r["size"], r["mtime"]) for r in conn.execute("SELECT id, path, size, mtime FROM files")}
     seen = set()
@@ -170,7 +171,7 @@ def build_index(roots=None, progress=None, captions=None, on_caption=None, media
     started = time.time()
 
     phase("scan")
-    paused = set(config.PAUSED_ROOTS)
+    paused = set(settings.paused_roots)
     for root in roots:
         if root in paused or not root.is_dir():
             continue
@@ -248,32 +249,32 @@ def build_index(roots=None, progress=None, captions=None, on_caption=None, media
         from . import providers
 
         # Unloading the model after indexing only means something for a local Ollama model
-        with power.GpuModel(config.CAPTION_MODEL) if providers.is_ollama("vision") else nullcontext():
-            if config.CAPTIONS if captions is None else captions:
+        with power.GpuModel(settings.caption_model) if providers.is_ollama("vision") else nullcontext():
+            if settings.captions if captions is None else captions:
                 phase("captions")
                 from .caption import caption_pending
 
                 try:
                     stats["captions"] = caption_pending(conn, on_caption)
                 except ConnectionError as e:
-                    stats["captions"] = {"error": f"Vision model ({config.VISION_PROVIDER}) not reachable: {e or 'no connection'}; captions skipped"}
+                    stats["captions"] = {"error": f"Vision model ({settings.vision_provider}) not reachable: {e or 'no connection'}; captions skipped"}
 
-            if config.VISUAL:
+            if settings.visual:
                 phase("visual")
                 from .visual import process_pending as visual_pending
 
                 stats["visual"] = visual_pending(conn, on_caption)
 
-            if config.MEDIA if media is None else media:
+            if settings.media if media is None else media:
                 phase("media")
                 from .media import process_pending
 
                 try:
                     stats["media"] = process_pending(
-                        conn, on_caption, transcripts=config.TRANSCRIPTS if transcripts is None else transcripts
+                        conn, on_caption, transcripts=settings.transcripts if transcripts is None else transcripts
                     )
                 except ConnectionError as e:
-                    stats["media"] = {"error": f"Vision model ({config.VISION_PROVIDER}) not reachable: {e or 'no connection'}; video/audio skipped"}
+                    stats["media"] = {"error": f"Vision model ({settings.vision_provider}) not reachable: {e or 'no connection'}; video/audio skipped"}
 
     # Passages for anything with new content: documents, and descriptions/transcripts added above
     from . import passages
@@ -283,7 +284,7 @@ def build_index(roots=None, progress=None, captions=None, on_caption=None, media
     conn.execute("INSERT INTO files_fts(files_fts) VALUES('optimize')")
     conn.commit()
     conn.close()
-    (config.DATA_DIR / "last_index.json").write_text(json.dumps({"at": time.time(), "stats": stats}))
+    (settings.data_dir / "last_index.json").write_text(json.dumps({"at": time.time(), "stats": stats}))
     return stats
 
 
@@ -507,7 +508,7 @@ def stats() -> dict:
         return {
             "files": total, "with_text": with_text, "captioned": captioned,
             "media_indexed": media, "transcript_lines": segments, "visual_indexed": visual,
-            "db": str(config.DB_PATH),
+            "db": str(settings.db_path),
         }
     finally:
         conn.close()

@@ -11,8 +11,9 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
+from .core.settings import settings
 
-from . import config
+
 
 SUPPLY = Path("/sys/class/power_supply")
 
@@ -41,9 +42,9 @@ def battery_percent() -> int | None:
 
 def heavy_allowed() -> tuple[bool, str]:
     """May we run the AI passes right now? Returns (allowed, reason when not)."""
-    if config.POWER_MODE == "performance":
+    if settings.power_mode == "performance":
         return True, ""
-    if config.POWER_MODE == "saver":
+    if settings.power_mode == "saver":
         return False, "power mode is 'saver'"
     if not on_ac():
         pct = battery_percent()
@@ -52,9 +53,9 @@ def heavy_allowed() -> tuple[bool, str]:
 
 
 def threads() -> int:
-    if config.POWER_MODE == "performance":
+    if settings.power_mode == "performance":
         return max(1, (os.cpu_count() or 4) - 2)
-    return config.THREADS
+    return settings.threads
 
 
 def low_priority():
@@ -90,7 +91,7 @@ def wait_if_paused() -> None:
 def wait_until_idle(max_wait: float = 300) -> None:
     """Before each heavy item: if the machine is busy (user working), wait a bit for it to calm down."""
     wait_if_paused()
-    if config.POWER_MODE == "performance":
+    if settings.power_mode == "performance":
         return
     limit = (os.cpu_count() or 4) * 0.6
     waited = 0.0
@@ -111,7 +112,7 @@ class GpuModel:
         try:
             import ollama
 
-            loaded = ollama.Client(host=config.OLLAMA_HOST).ps().models
+            loaded = ollama.Client(host=settings.ollama_host).ps().models
             self.was_loaded = any(m.model == self.model or m.name == self.model for m in loaded)
         except Exception:
             pass
@@ -123,8 +124,8 @@ class GpuModel:
         try:
             import ollama
 
-            ollama.Client(host=config.OLLAMA_HOST).generate(
-                model=self.model, prompt="", keep_alive=0, options=config.ollama_options()
+            ollama.Client(host=settings.ollama_host).generate(
+                model=self.model, prompt="", keep_alive=0, options=settings.ollama_options()
             )
         except Exception:
             pass

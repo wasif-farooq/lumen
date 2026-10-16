@@ -13,8 +13,9 @@ import subprocess
 import time
 import uuid
 from pathlib import Path
+from .core.settings import settings
 
-from . import config
+
 
 MAX_TEXT_BYTES = 1024 * 1024        # create_file: text only, up to 1 MB
 MAX_COPY_BYTES = 20 * 1024 ** 3     # refuse copies over 20 GB
@@ -26,13 +27,13 @@ class FileOpError(ValueError):
 
 def _inside(p: Path) -> Path:
     p = Path(os.path.expanduser(str(p))).resolve()
-    if not any(p == r or p.is_relative_to(r) for r in config.ROOTS):
-        raise FileOpError(f"{p} is outside your indexed folders ({', '.join(map(str, config.ROOTS))}).")
+    if not any(p == r or p.is_relative_to(r) for r in settings.roots):
+        raise FileOpError(f"{p} is outside your indexed folders ({', '.join(map(str, settings.roots))}).")
     return p
 
 
 def _not_a_root(p: Path):
-    if p in config.ROOTS:
+    if p in settings.roots:
         raise FileOpError(f"{p} is one of your indexed folders itself; I won't move it.")
 
 
@@ -115,11 +116,11 @@ def plan_move(source: str, destination: str) -> dict:
 # ---------- execute / undo ----------
 
 def _log_file() -> Path:
-    return config.DATA_DIR / "actions.jsonl"
+    return settings.data_dir / "actions.jsonl"
 
 
 def _append(entry: dict):
-    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
     with _log_file().open("a") as f:
         f.write(json.dumps(entry) + "\n")
 
@@ -140,7 +141,7 @@ def execute(plan: dict) -> dict:
         "copy": lambda: plan_copy(plan["src"], plan["dst"]),
         "move": lambda: plan_move(plan["src"], plan["dst"]),
     }[op]()
-    if not config.WRITE_ENABLED:
+    if not settings.write_enabled:
         return {**fresh, "id": None, "dry_run": True, "message": f"TEST MODE, nothing changed: {fresh['summary']}"}
     src, dst = Path(fresh.get("src", "")), Path(fresh["dst"])
     if op == "create_folder":
@@ -170,7 +171,7 @@ def undo(action_id: str) -> str:
         raise FileOpError("No such change.")
     if entry.get("undone"):
         raise FileOpError("That change was already undone.")
-    if not config.WRITE_ENABLED:
+    if not settings.write_enabled:
         raise FileOpError("Test mode: nothing to undo.")
     dst = Path(entry["dst"])
     if entry["op"] == "move":
@@ -220,7 +221,7 @@ def _reindex_moved(src: Path, dst: Path):
         ).fetchall()
         for r in rows:
             new = Path(str(dst) + r["path"][len(str(src)):])
-            if not any(new == root or new.is_relative_to(root) for root in config.ROOTS):
+            if not any(new == root or new.is_relative_to(root) for root in settings.roots):
                 continue
             words = lambda s: " ".join(re.findall(r"[^\W_]+", s))
             conn.execute("UPDATE files SET path=?, name=?, ext=? WHERE id=?",

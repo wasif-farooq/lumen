@@ -25,9 +25,11 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import config, index, power, providers, settings
+from . import index, power, providers
 from .media import MEDIA_EXTS, fmt_time
 from .tools import RUNNABLE_EXTS, _allowed, _launch
+from .core import preferences
+from .core.settings import settings
 
 app = FastAPI(title="Lumen")
 _model_lock = threading.Lock()  # one local model: answer one chat at a time
@@ -42,7 +44,7 @@ def _is_local(request: Request) -> bool:
 
 
 def _devices_file() -> Path:
-    return config.DATA_DIR / "devices.json"
+    return settings.data_dir / "devices.json"
 
 
 def _devices() -> list[dict]:
@@ -78,8 +80,8 @@ def local_only(request: Request):
 # ---------- chats (history for the UI; the model's memory is in the checkpointer) ----------
 
 def _db() -> sqlite3.Connection:
-    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(config.DATA_DIR / "chats.db", check_same_thread=False)
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(settings.data_dir / "chats.db", check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS chats (id TEXT PRIMARY KEY, title TEXT, created REAL, updated REAL);
@@ -105,7 +107,7 @@ def saver():
     if _saver is None:
         from langgraph.checkpoint.sqlite import SqliteSaver
 
-        _saver = SqliteSaver(sqlite3.connect(config.DATA_DIR / "memory.db", check_same_thread=False))
+        _saver = SqliteSaver(sqlite3.connect(settings.data_dir / "memory.db", check_same_thread=False))
     return _saver
 
 
@@ -258,7 +260,7 @@ def _friendly(e: Exception) -> str:
     if name == "GraphRecursionError":
         return "I went in circles on that one and stopped. Try rephrasing it more specifically."
     if isinstance(e, ConnectionError) or "connect" in str(e).lower():
-        return f"Can't reach the local model (Ollama at {config.OLLAMA_HOST}). Is it running?"
+        return f"Can't reach the local model (Ollama at {settings.ollama_host}). Is it running?"
     return f"Something went wrong: {e}"
 
 
@@ -339,7 +341,7 @@ async def chat_similar_upload(chat_id: str, request: Request, _=Depends(auth)):
     im = im.convert("RGB")
     im.thumbnail((1024, 1024))
     upload_id = hashlib.sha1(data).hexdigest()[:20]
-    folder = config.DATA_DIR / "uploads"
+    folder = settings.data_dir / "uploads"
     folder.mkdir(parents=True, exist_ok=True)
     buf = BytesIO()
     im.save(buf, "JPEG", quality=88)
@@ -351,7 +353,7 @@ async def chat_similar_upload(chat_id: str, request: Request, _=Depends(auth)):
 def get_upload(upload_id: str, _=Depends(auth)):
     if not upload_id.isalnum():
         raise HTTPException(400, "Bad id")
-    f = config.DATA_DIR / "uploads" / f"{upload_id}.jpg"
+    f = settings.data_dir / "uploads" / f"{upload_id}.jpg"
     if not f.exists():
         raise HTTPException(404, "Not found")
     return Response(f.read_bytes(), media_type="image/jpeg", headers={"Cache-Control": "max-age=86400"})
@@ -399,7 +401,7 @@ def thumb(path: str, w: int = 480, t: float | None = None, _=Depends(auth)):
     w = max(64, min(w, 1600))
     st = p.stat()
     key = hashlib.sha1(f"{p}|{st.st_mtime}|{w}|{t}".encode()).hexdigest()
-    cache = config.DATA_DIR / "thumbs" / f"{key}.png"
+    cache = settings.data_dir / "thumbs" / f"{key}.png"
     if not cache.exists():
         png = _render_thumb(p, w, t)
         if png is None:
@@ -484,13 +486,13 @@ def _checked(path: str) -> Path:
 @app.get("/api/status")
 def status(_=Depends(auth)):
     try:
-        last = json.loads((config.DATA_DIR / "last_index.json").read_text())
+        last = json.loads((settings.data_dir / "last_index.json").read_text())
     except (OSError, ValueError):
         last = None
     try:
         import ollama
 
-        loaded = [m.model for m in ollama.Client(host=config.OLLAMA_HOST).ps().models]
+        loaded = [m.model for m in ollama.Client(host=settings.ollama_host).ps().models]
         ollama_ok = True
     except Exception:
         loaded, ollama_ok = [], False
@@ -501,19 +503,19 @@ def status(_=Depends(auth)):
         "last_index": last,
         "indexing": _indexer.running,
         "index_paused": _indexer.state["paused"],
-        "folders": [{"path": str(r), "files": _count_under(r), "paused": r in config.PAUSED_ROOTS} for r in config.ROOTS],
-        "power": {"on_ac": power.on_ac(), "battery": power.battery_percent(), "mode": config.POWER_MODE,
+        "folders": [{"path": str(r), "files": _count_under(r), "paused": r in settings.paused_roots} for r in settings.roots],
+        "power": {"on_ac": power.on_ac(), "battery": power.battery_percent(), "mode": settings.power_mode,
                   "ai_allowed": allowed, "reason": why, "threads": power.threads()},
-        "models": {"agent": config.AGENT_MODEL, "vision": config.CAPTION_MODEL, "speech": f"whisper-{config.WHISPER_MODEL}",
-                   "agent_provider": providers.get(config.AGENT_PROVIDER)["name"],
-                   "vision_provider": providers.get(config.VISION_PROVIDER)["name"],
-                   "agent_cloud": providers.is_cloud(providers.get(config.AGENT_PROVIDER)),
-                   "vision_cloud": providers.is_cloud(providers.get(config.VISION_PROVIDER)),
-                   "cpu_only": config.CPU_ONLY, "ollama_ok": ollama_ok, "loaded": loaded},
+        "models": {"agent": settings.agent_model, "vision": settings.caption_model, "speech": f"whisper-{settings.whisper_model}",
+                   "agent_provider": providers.get(settings.agent_provider)["name"],
+                   "vision_provider": providers.get(settings.vision_provider)["name"],
+                   "agent_cloud": providers.is_cloud(providers.get(settings.agent_provider)),
+                   "vision_cloud": providers.is_cloud(providers.get(settings.vision_provider)),
+                   "cpu_only": settings.cpu_only, "ollama_ok": ollama_ok, "loaded": loaded},
         "langfuse": bool(os.environ.get("LANGFUSE_PUBLIC_KEY")),
         "langfuse_host": os.environ.get("LANGFUSE_HOST", ""),
         "lan": _state["lan"],
-        "open_mode": config.OPEN_MODE,
+        "open_mode": settings.open_mode,
     }
 
 
@@ -527,20 +529,20 @@ def _count_under(root: Path) -> int:
 
 @app.get("/api/settings")
 def get_settings(_=Depends(auth)):
-    return settings.current()
+    return preferences.current()
 
 
 @app.put("/api/settings")
 def put_settings(body: dict, _=Depends(local_only)):
-    before = config.CPU_ONLY
+    before = settings.cpu_only
     if "roots" in body:
         try:
-            settings.check_roots(body["roots"])
+            preferences.check_roots(body["roots"])
         except ValueError as e:
             raise HTTPException(400, str(e))
-    roots_before = list(config.ROOTS)
-    out = settings.update(body)
-    if config.CPU_ONLY != before or config.ROOTS != roots_before:
+    roots_before = list(settings.roots)
+    out = preferences.update(body)
+    if settings.cpu_only != before or settings.roots != roots_before:
         _sessions.clear()  # rebuild agents with the new GPU/CPU choice / folder list
     return out
 
@@ -550,7 +552,7 @@ class Indexer:
         self.proc = None
         self.lines = deque(maxlen=300)
         self.started = None
-        self.pause_file = config.DATA_DIR / "index.pause"
+        self.pause_file = settings.data_dir / "index.pause"
         self.pause_file.unlink(missing_ok=True)  # a flag left by a crash would hold the next run
         self._reset()
 
@@ -581,7 +583,7 @@ class Indexer:
         self.proc = subprocess.Popen(
             [sys.executable, "-m", "lumen", "index"],
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-            env={**os.environ, "COLUMNS": "200", "LUMEN_DATA": str(config.DATA_DIR), "PYTHONUNBUFFERED": "1",
+            env={**os.environ, "COLUMNS": "200", "LUMEN_DATA": str(settings.data_dir), "PYTHONUNBUFFERED": "1",
                  "LUMEN_EVENTS": "1", "LUMEN_PAUSE_FILE": str(self.pause_file)},
             start_new_session=True,  # own process group, so Stop also ends its ffmpeg children
         )
@@ -716,7 +718,7 @@ def _not_while_indexing():
 
 def _root(path: str) -> Path:
     r = Path(path).expanduser().resolve()
-    if r not in config.ROOTS:
+    if r not in settings.roots:
         raise HTTPException(404, f"Not an indexed folder: {r}")
     return r
 
@@ -726,13 +728,13 @@ def exclude_path(body: PathBody, _=Depends(local_only)):
     """Drop a file or folder from the index and keep it out of later runs."""
     _not_while_indexing()
     p = Path(body.path).expanduser().resolve()
-    if not any(p.is_relative_to(r) for r in config.ROOTS):
+    if not any(p.is_relative_to(r) for r in settings.roots):
         raise HTTPException(400, f"Not inside an indexed folder: {p}")
-    if p in config.ROOTS:
+    if p in settings.roots:
         raise HTTPException(400, "To drop a whole folder, remove it from the folder list instead")
     removed = index.forget(str(p))
-    settings.update({"excluded": [*config.EXCLUDED, str(p)]})
-    return {"removed": removed, "excluded": config.EXCLUDED}
+    preferences.update({"excluded": [*settings.excluded, str(p)]})
+    return {"removed": removed, "excluded": settings.excluded}
 
 
 @app.post("/api/index/include")
@@ -740,10 +742,10 @@ def include_path(body: PathBody, _=Depends(local_only)):
     """Let an excluded file or folder back in; it is indexed on the next run (now, by default)."""
     _not_while_indexing()
     p = str(Path(body.path).expanduser().resolve())
-    settings.update({"excluded": [e for e in config.EXCLUDED if e != p]})
+    preferences.update({"excluded": [e for e in settings.excluded if e != p]})
     if body.reindex:
         _indexer.start()
-    return {"excluded": config.EXCLUDED}
+    return {"excluded": settings.excluded}
 
 
 @app.post("/api/folders/pause")
@@ -751,7 +753,7 @@ def pause_folder(body: PathBody, _=Depends(local_only)):
     """Keep a folder's files searchable but stop re-scanning it."""
     _not_while_indexing()
     r = _root(body.path)
-    settings.update({"paused_roots": [*(p for p in config.PAUSED_ROOTS if p != r), r]})
+    preferences.update({"paused_roots": [*(p for p in settings.paused_roots if p != r), r]})
     return {"paused": True}
 
 
@@ -759,7 +761,7 @@ def pause_folder(body: PathBody, _=Depends(local_only)):
 def resume_folder(body: PathBody, _=Depends(local_only)):
     _not_while_indexing()
     r = _root(body.path)
-    settings.update({"paused_roots": [p for p in config.PAUSED_ROOTS if p != r]})
+    preferences.update({"paused_roots": [p for p in settings.paused_roots if p != r]})
     if body.reindex:
         _indexer.start()  # catch up on what changed while it was paused
     return {"paused": False}
@@ -771,7 +773,7 @@ def clear_folder(body: PathBody, _=Depends(local_only)):
     _not_while_indexing()
     r = _root(body.path)
     removed = index.forget(str(r))
-    if body.reindex and r not in config.PAUSED_ROOTS:
+    if body.reindex and r not in settings.paused_roots:
         _indexer.start()
     return {"removed": removed}
 
@@ -789,7 +791,7 @@ def _provider_call(fn, *a):
 
 @app.get("/api/providers")
 def list_providers(_=Depends(auth)):
-    return {"providers": [providers.public(p) for p in config.PROVIDERS.values()], "roles": providers.roles(),
+    return {"providers": [providers.public(p) for p in settings.providers.values()], "roles": providers.roles(),
             "speech_models": providers.SPEECH_MODELS, "pulls": providers.pull_status()}
 
 
@@ -939,7 +941,7 @@ def run(lan: bool = False, port: int = 8765):
     _state.update(lan=lan, port=port)
     zc = _advertise(port) if lan else None
     where = f"0.0.0.0:{port} (LAN {_lan_ip()}:{port})" if lan else f"127.0.0.1:{port}"
-    print(f"lumen API on {where} · model {config.AGENT_MODEL}", flush=True)
+    print(f"lumen API on {where} · model {settings.agent_model}", flush=True)
     try:
         uvicorn.run(app, host="0.0.0.0" if lan else "127.0.0.1", port=port, log_level="warning")
     finally:

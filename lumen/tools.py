@@ -9,9 +9,10 @@ from urllib.parse import unquote
 from langchain_core.tools import tool
 from langgraph.types import interrupt
 
-from . import config, index, passages
+from . import index, passages
 from .extract import extract_text
 from .media import MEDIA_EXTS, fmt_time
+from .core.settings import settings
 
 # Opening these could execute them, so we reveal them in the file manager instead
 RUNNABLE_EXTS = {
@@ -22,15 +23,15 @@ RUNNABLE_EXTS = {
 
 def _allowed(p: str) -> Path:
     path = Path(p).expanduser().resolve()
-    if not any(path == r or path.is_relative_to(r) for r in config.ROOTS):
-        raise PermissionError(f"{path} is outside the allowed folders: {', '.join(map(str, config.ROOTS))}")
+    if not any(path == r or path.is_relative_to(r) for r in settings.roots):
+        raise PermissionError(f"{path} is outside the allowed folders: {', '.join(map(str, settings.roots))}")
     return path
 
 
 def _launch(target: Path, start: float = 0) -> str:
     cmd = ["xdg-open", str(target)]
     at = ""
-    if start > 0 and config.OPEN_MODE != "xdg":
+    if start > 0 and settings.open_mode != "xdg":
         at = f" in the video player at {fmt_time(start)}"
     elif start > 0:
         at = f" at {fmt_time(start)}"
@@ -40,7 +41,7 @@ def _launch(target: Path, start: float = 0) -> str:
             cmd = ["vlc", f"--start-time={int(start)}", str(target)]
         else:
             at = f" (no mpv/vlc to jump to {fmt_time(start)}; opened from the start)"
-    if config.OPEN_MODE != "xdg":
+    if settings.open_mode != "xdg":
         return (
             f"NOT OPENED (test mode: running in Docker without a desktop). Would have opened: {target}{at}. "
             "Tell the user it was not opened and give the full path."
@@ -266,7 +267,7 @@ def make_tools(emit=None, app=False, state=None):
             )
         start = start_seconds if ext in MEDIA_EXTS else 0
         result = _launch(path, start)
-        emit({"type": "opened", "path": str(path), "start_seconds": start, "dry_run": config.OPEN_MODE != "xdg"})
+        emit({"type": "opened", "path": str(path), "start_seconds": start, "dry_run": settings.open_mode != "xdg"})
         return result
 
     @tool

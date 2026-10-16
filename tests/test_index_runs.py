@@ -4,7 +4,7 @@ import time
 
 from fastapi.testclient import TestClient
 
-from conftest import wait_until
+from conftest import app, wait_until
 
 
 def progress(client) -> dict:
@@ -60,15 +60,13 @@ def test_starting_twice_runs_once(env, local):
     assert progress(local)["summary"]["added"] == 6
 
 
-def test_server_shutdown_stops_a_running_index(env):
-    from lumen import server
-
+def test_server_shutdown_stops_a_running_index(env, indexer):
     many_files(env, 4000)
-    with TestClient(server.app, client=("127.0.0.1", 50000)) as client:
+    with TestClient(app(), client=("127.0.0.1", 50000)) as client:
         client.post("/api/index")
         client.post("/api/index/pause")
         assert wait_until(lambda: progress(client)["paused"])
-        proc = server._indexer.proc
+        proc = indexer.process
     assert proc.poll() is not None  # shutdown ended the indexer process
 
 

@@ -4,7 +4,8 @@ import time
 
 import pymupdf
 
-from . import config, power, providers
+from . import power, providers
+from .core import limits
 
 IMAGE_EXTS = {"jpg", "jpeg", "png", "webp", "gif", "bmp", "tif", "tiff"}
 MIN_IMAGE_BYTES = 10 * 1024  # smaller images are usually icons/UI assets: not worth a caption
@@ -20,9 +21,9 @@ PROMPT = (
 
 def wants_caption(ext: str, size: int, has_text: bool) -> bool:
     if ext in IMAGE_EXTS:
-        return MIN_IMAGE_BYTES <= size <= config.MAX_EXTRACT_BYTES
+        return MIN_IMAGE_BYTES <= size <= limits.MAX_EXTRACT_BYTES
     # PDFs with no text layer are almost always scans
-    return ext == "pdf" and not has_text and size <= config.MAX_EXTRACT_BYTES
+    return ext == "pdf" and not has_text and size <= limits.MAX_EXTRACT_BYTES
 
 
 def _render(path: str) -> bytes:

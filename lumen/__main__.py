@@ -15,7 +15,8 @@ import sys
 from rich.console import Console
 from rich.markdown import Markdown
 
-from . import config, index
+from . import index
+from .core.settings import settings
 
 console = Console()
 
@@ -30,11 +31,11 @@ def cmd_index(a):
     from . import power
 
     if a.power:
-        config.POWER_MODE = a.power
+        settings.update(power_mode=a.power)  # this run only, not saved
     pct = power.battery_percent()
-    console.print(f"Indexing: {', '.join(map(str, config.ROOTS))}")
+    console.print(f"Indexing: {', '.join(map(str, settings.roots))}")
     console.print(
-        f"Power: mode {config.POWER_MODE}, {'CPU only' if config.CPU_ONLY else 'GPU'}, "
+        f"Power: mode {settings.power_mode}, {'CPU only' if settings.cpu_only else 'GPU'}, "
         f"{'plugged in' if power.on_ac() else 'on battery'}"
         f"{f' ({pct}%)' if pct is not None else ''}, {power.threads()} threads, low priority",
         style="dim",
@@ -71,7 +72,7 @@ def cmd_index(a):
     if c and "error" in c:
         console.print(c["error"], style="yellow")
     elif c:
-        console.print(f"Captions ({config.CAPTION_MODEL}): {c['captioned']} described, {c['failed']} failed, {c['seconds']}s")
+        console.print(f"Captions ({settings.caption_model}): {c['captioned']} described, {c['failed']} failed, {c['seconds']}s")
     v = s.get("visual")
     if v and "error" in v:
         console.print(v["error"], style="yellow")
@@ -83,7 +84,7 @@ def cmd_index(a):
     elif m:
         console.print(
             f"Video/audio: {m['media']} indexed ({m['described']} described, {m['transcribed']} transcribed "
-            f"with whisper-{config.WHISPER_MODEL}), {m['reused']} duplicates reused, {m['failed']} failed, {m['seconds']}s"
+            f"with whisper-{settings.whisper_model}), {m['reused']} duplicates reused, {m['failed']} failed, {m['seconds']}s"
         )
 
 
@@ -143,8 +144,8 @@ def _session():
     s = Session()
     stats = index.stats()
     console.print(
-        f"[bold]lumen[/bold] · model {config.AGENT_MODEL} · {stats['files']:,} files indexed · "
-        f"{'CPU only' if config.CPU_ONLY else 'GPU'} · open mode: {config.OPEN_MODE} · "
+        f"[bold]lumen[/bold] · model {settings.agent_model} · {stats['files']:,} files indexed · "
+        f"{'CPU only' if settings.cpu_only else 'GPU'} · open mode: {settings.open_mode} · "
         f"langfuse: {'on' if s.tracing else 'off'}",
         style="dim",
     )
@@ -212,9 +213,9 @@ def main(argv=None):
     sv.add_argument("--port", type=int, default=8765)
     sv.set_defaults(fn=cmd_serve)
     a = p.parse_args(argv)
-    from . import settings
+    from .core.bootstrap import load_saved_state
 
-    settings.load()
+    load_saved_state()
     a.fn(a)
 
 

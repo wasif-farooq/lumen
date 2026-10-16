@@ -1,38 +1,37 @@
-"""User settings saved in the data folder and applied on top of the environment defaults."""
+"""What the user changes in the app (folders, power, what gets indexed), saved in the data folder
+as settings.json and applied on top of the environment defaults."""
 
 import json
 from pathlib import Path
 
-from . import config
+from .settings import settings
 
+# Saved by name; the type turns JSON values back into settings values
 FIELDS = {
-    "power_mode": ("POWER_MODE", str),
-    "cpu_only": ("CPU_ONLY", bool),
-    "threads": ("THREADS", int),
-    "captions": ("CAPTIONS", bool),
-    "media": ("MEDIA", bool),
-    "transcripts": ("TRANSCRIPTS", bool),
-    "visual": ("VISUAL", bool),
+    "power_mode": str,
+    "cpu_only": bool,
+    "threads": int,
+    "captions": bool,
+    "media": bool,
+    "transcripts": bool,
+    "visual": bool,
 }
 
 
 def _file() -> Path:
-    return config.DATA_DIR / "settings.json"
+    return settings.data_dir / "settings.json"
 
 
 def current() -> dict:
-    out = {name: getattr(config, attr) for name, (attr, _) in FIELDS.items()}
-    out["roots"] = [str(r) for r in config.ROOTS]
-    out["paused_roots"] = [str(r) for r in config.PAUSED_ROOTS]
-    out["excluded"] = list(config.EXCLUDED)
+    out = {name: getattr(settings, name) for name in FIELDS}
+    out["roots"] = [str(r) for r in settings.roots]
+    out["paused_roots"] = [str(r) for r in settings.paused_roots]
+    out["excluded"] = list(settings.excluded)
     return out
 
 
 def load():
-    """Apply saved settings (called once at server start)."""
-    from . import providers
-
-    providers.load()
+    """Apply saved preferences (once, at start)."""
     try:
         saved = json.loads(_file().read_text())
     except (OSError, ValueError):
@@ -46,25 +45,20 @@ def load():
 
 def update(changes: dict) -> dict:
     _apply(changes)
-    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
     _file().write_text(json.dumps(current(), indent=1))
     return current()
 
 
 def _apply(values: dict):
-    for name, (attr, typ) in FIELDS.items():
-        if name in values and values[name] is not None:
-            setattr(config, attr, typ(values[name]))
-    if config.POWER_MODE not in ("auto", "saver", "performance"):
-        config.POWER_MODE = "auto"
-    config.THREADS = max(1, min(config.THREADS, 32))
+    changes = {name: typ(values[name]) for name, typ in FIELDS.items() if values.get(name) is not None}
     if "roots" in values and values["roots"]:
-        config.ROOTS = check_roots(values["roots"])
+        changes["roots"] = check_roots(values["roots"])
     if "paused_roots" in values:
-        config.PAUSED_ROOTS = [Path(p).expanduser().resolve() for p in values["paused_roots"] or []]
+        changes["paused_roots"] = [Path(p).expanduser().resolve() for p in values["paused_roots"] or []]
     if "excluded" in values:
-        config.EXCLUDED = sorted({str(Path(p).expanduser().resolve()) for p in values["excluded"] or []})
-    config.PAUSED_ROOTS = [r for r in config.PAUSED_ROOTS if r in config.ROOTS]  # drop folders no longer indexed
+        changes["excluded"] = sorted({str(Path(p).expanduser().resolve()) for p in values["excluded"] or []})
+    settings.update(**changes)
 
 
 def check_roots(paths: list[str]) -> list[Path]:

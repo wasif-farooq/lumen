@@ -1,9 +1,8 @@
 """Settings: reading and saving, folder checks, and names kept from before the rename."""
 
 import json
-import os
-import subprocess
-import sys
+
+from conftest import setting_in_fresh_python
 
 
 def test_settings_round_trip(env, local):
@@ -41,24 +40,27 @@ def test_the_last_folder_cannot_be_removed(env, local):
     assert len(local.get("/api/settings").json()["roots"]) == 2
 
 
-def _config_in_fresh_python(env_vars: dict, code: str) -> str:
-    """config reads the environment at import: check it in a new interpreter."""
-    clean = {k: v for k, v in os.environ.items() if not k.startswith(("LUMEN_", "OS_OPERATOR_"))}
-    out = subprocess.run([sys.executable, "-c", f"from lumen import config; print({code})"],
-                         env={**clean, **env_vars}, capture_output=True, text=True, check=True)
-    return out.stdout.strip()
-
-
 def test_old_environment_names_still_work_and_new_ones_win(env):
-    assert _config_in_fresh_python({"OS_OPERATOR_MODEL": "old-model"}, "config.AGENT_MODEL") == "old-model"
+    assert setting_in_fresh_python({"OS_OPERATOR_MODEL": "old-model"}, "agent_model") == "old-model"
     both = {"OS_OPERATOR_MODEL": "old-model", "LUMEN_MODEL": "new-model"}
-    assert _config_in_fresh_python(both, "config.AGENT_MODEL") == "new-model"
+    assert setting_in_fresh_python(both, "agent_model") == "new-model"
 
 
 def test_data_folder_from_before_the_rename_is_kept(env, tmp_path):
     home = tmp_path / "home"
     (home / ".local/share/os-operator").mkdir(parents=True)
-    got = _config_in_fresh_python({"HOME": str(home)}, "config.DATA_DIR")
+    got = setting_in_fresh_python({"HOME": str(home)}, "data_dir")
     assert got.endswith(".local/share/os-operator")
     (home / ".local/share/lumen").mkdir()
-    assert _config_in_fresh_python({"HOME": str(home)}, "config.DATA_DIR").endswith(".local/share/lumen")
+    assert setting_in_fresh_python({"HOME": str(home)}, "data_dir").endswith(".local/share/lumen")
+
+
+def test_a_new_process_starts_with_what_was_saved(env, local):
+    local.put("/api/settings", json={"threads": 3})
+    p = local.post("/api/providers", json={"kind": "openai", "name": "LM", "base_url": "http://localhost:1234/v1"}).json()
+    local.put("/api/roles", json={"role": "agent", "provider": p["id"], "model": "llama-3"})
+    started = {"LUMEN_DATA": str(env.data), "LUMEN_ROOTS": str(env.documents)}
+    assert setting_in_fresh_python(started, "threads", after_start=True) == "3"
+    assert setting_in_fresh_python(started, "agent_model", after_start=True) == "llama-3"
+    assert setting_in_fresh_python(started, "agent_provider", after_start=True) == p["id"]
+    assert setting_in_fresh_python(started, "threads") == "4"  # without loading: environment defaults

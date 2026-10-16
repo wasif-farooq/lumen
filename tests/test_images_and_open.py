@@ -17,36 +17,9 @@ def _picture(colour: str, size=(160, 120), seed=0) -> Image.Image:
     return Image.fromarray(np.clip(rgb + noise, 0, 255).astype("uint8"))
 
 
-def _one_hot(i: int) -> np.ndarray:
-    v = np.zeros(512, dtype=np.float32)
-    v[i] = 1.0
-    return v
-
-
 @pytest.fixture
-def pictures(env, monkeypatch):
-    """Images of three colours (and a smaller copy of the red one), indexed with a fake CLIP that
-    knows only colour: an image points at its strongest channel, text at the colour it names."""
-    from lumen import config, visual
-
-    def colour_of(im) -> int:
-        mean = np.asarray(im.convert("RGB"), dtype=float).mean((0, 1))
-        return int(np.argmax(mean)) if mean.max() - mean.min() > 40 else 20  # grey: no colour
-
-    def embed_images(images):
-        return np.stack([_one_hot(colour_of(im)) for im in images])
-
-    def embed_text(text):
-        for i, name in enumerate(COLOURS):
-            if name in text:
-                return _one_hot(i)
-        return _one_hot(10)
-
-    monkeypatch.setattr(visual, "_load", lambda: {"fake": True})
-    monkeypatch.setattr(visual, "embed_images", embed_images)
-    monkeypatch.setattr(visual, "embed_text", embed_text)
-    monkeypatch.setattr(config, "VISUAL", True)
-    monkeypatch.setattr(config, "POWER_MODE", "performance")  # the image pass is skipped in saver mode
+def pictures(env, fake_clip):
+    """Images of three colours (and a smaller copy of the red one), indexed with the colour-only fake CLIP."""
     folder = env.downloads / "pictures"
     folder.mkdir()
     files = {}

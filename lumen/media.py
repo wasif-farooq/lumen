@@ -8,7 +8,9 @@ import subprocess
 import time
 from io import BytesIO
 
-from . import config, power
+from . import power
+from .core import limits
+from .core.settings import settings
 
 VIDEO_EXTS = {"mp4", "mkv", "mov", "webm", "avi", "m4v", "3gp", "wmv", "flv", "mpg", "mpeg"}
 AUDIO_EXTS = {"mp3", "m4a", "wav", "ogg", "opus", "flac", "aac", "wma"}
@@ -111,9 +113,9 @@ def load_whisper():
         from faster_whisper import WhisperModel
 
         _whisper = WhisperModel(
-            config.WHISPER_MODEL, device="cpu", compute_type="int8",
+            settings.whisper_model, device="cpu", compute_type="int8",
             cpu_threads=power.threads(),
-            download_root=str(config.DATA_DIR / "models"),
+            download_root=str(settings.data_dir / "models"),
         )
     return _whisper
 
@@ -170,7 +172,7 @@ def process_pending(conn, progress=None, transcripts=True) -> dict:
             load_whisper()
         except Exception as e:
             # Leave everything pending (not failed) so the next run retries with transcripts
-            return {"error": f"speech model '{config.WHISPER_MODEL}' could not be loaded ({e}); video/audio left for next run"}
+            return {"error": f"speech model '{settings.whisper_model}' could not be loaded ({e}); video/audio left for next run"}
     started = time.time()
     done_by_fp: dict[str, int] = {}
 
@@ -218,7 +220,7 @@ def process_pending(conn, progress=None, transcripts=True) -> dict:
                     stats["transcribed"] += 1
                 say(f"transcribed {len(segs)} segments ({lang}) in {time.time() - t0:.0f}s")
 
-            content = "\n".join(parts)[: config.MAX_CONTENT_CHARS]
+            content = "\n".join(parts)[: limits.MAX_CONTENT_CHARS]
             conn.execute(
                 "UPDATE files SET duration=?, caption=?, media_done=1, fingerprint=? WHERE id=?",
                 (meta["duration"], caption, fp, r["id"]),

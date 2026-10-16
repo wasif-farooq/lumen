@@ -41,3 +41,10 @@ def test_index_progress_events_for_the_app(env):
     phases = [e["phase"] for e in events if "phase" in e]
     assert phases == ["scan", "passages"]  # AI passes are skipped in saver mode
     assert events[-1]["summary"]["added"] == 6
+
+
+def test_power_override_applies_to_that_run_only(env):
+    r = lumen("index", "--power", "performance")
+    assert "mode performance" in r.stdout
+    assert not (env.data / "settings.json").exists()  # nothing saved
+    assert "mode saver" in lumen("index").stdout

@@ -15,8 +15,10 @@ import os
 import re
 import threading
 from urllib.parse import urlparse
+from .core import limits
+from .core.settings import settings
 
-from . import config
+
 
 ROLES = ("agent", "vision")
 SPEECH_MODELS = ["tiny", "base", "small", "medium", "large-v3"]
@@ -24,14 +26,14 @@ KINDS = ("ollama", "openai")
 
 
 def _file():
-    return config.DATA_DIR / "providers.json"
+    return settings.data_dir / "providers.json"
 
 
 def _defaults() -> dict:
-    return {"ollama": {"id": "ollama", "name": "Ollama", "kind": "ollama", "base_url": config.OLLAMA_HOST}}
+    return {"ollama": {"id": "ollama", "name": "Ollama", "kind": "ollama", "base_url": settings.ollama_host}}
 
 
-config.PROVIDERS = _defaults()
+settings.update(providers=_defaults())
 
 
 def load():
@@ -40,25 +42,24 @@ def load():
         saved = json.loads(_file().read_text())
     except (OSError, ValueError):
         return
-    config.PROVIDERS = {**_defaults(), **{p["id"]: p for p in saved.get("providers", []) if p.get("kind") in KINDS}}
-    config.OLLAMA_HOST = config.PROVIDERS["ollama"]["base_url"]
+    settings.update(providers={**_defaults(), **{p["id"]: p for p in saved.get("providers", []) if p.get("kind") in KINDS}})
+    settings.update(ollama_host=settings.providers["ollama"]["base_url"])
     roles = saved.get("roles", {})
     for role, (prov_attr, model_attr) in _ROLE_ATTRS.items():
         r = roles.get(role) or {}
-        if r.get("provider") in config.PROVIDERS and r.get("model"):
-            setattr(config, prov_attr, r["provider"])
-            setattr(config, model_attr, r["model"])
+        if r.get("provider") in settings.providers and r.get("model"):
+            settings.update(**{prov_attr: r["provider"], model_attr: r["model"]})
     if roles.get("speech", {}).get("model") in SPEECH_MODELS:
-        config.WHISPER_MODEL = roles["speech"]["model"]
+        settings.update(whisper_model=roles["speech"]["model"])
 
 
-_ROLE_ATTRS = {"agent": ("AGENT_PROVIDER", "AGENT_MODEL"), "vision": ("VISION_PROVIDER", "CAPTION_MODEL")}
+_ROLE_ATTRS = {"agent": ("agent_provider", "agent_model"), "vision": ("vision_provider", "caption_model")}
 
 
 def _save():
-    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
     f = _file()
-    data = {"providers": list(config.PROVIDERS.values()), "roles": roles()}
+    data = {"providers": list(settings.providers.values()), "roles": roles()}
     fd = os.open(f, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w") as out:
         json.dump(data, out, indent=1)
@@ -67,16 +68,16 @@ def _save():
 
 def roles() -> dict:
     return {
-        "agent": {"provider": config.AGENT_PROVIDER, "model": config.AGENT_MODEL},
-        "vision": {"provider": config.VISION_PROVIDER, "model": config.CAPTION_MODEL},
-        "speech": {"provider": "local", "model": config.WHISPER_MODEL},
+        "agent": {"provider": settings.agent_provider, "model": settings.agent_model},
+        "vision": {"provider": settings.vision_provider, "model": settings.caption_model},
+        "speech": {"provider": "local", "model": settings.whisper_model},
     }
 
 
 def get(pid: str) -> dict:
-    if pid not in config.PROVIDERS:
+    if pid not in settings.providers:
         raise KeyError(f"No provider '{pid}'")
-    return config.PROVIDERS[pid]
+    return settings.providers[pid]
 
 
 def is_cloud(p: dict) -> bool:
@@ -119,7 +120,7 @@ def upsert(data: dict) -> dict:
     else:
         base = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "provider"
         pid, n = base, 2
-        while pid in config.PROVIDERS:
+        while pid in settings.providers:
             pid, n = f"{base}-{n}", n + 1
         p = {"id": pid, "kind": kind}
     p.update(name=name, base_url=url)
@@ -127,9 +128,9 @@ def upsert(data: dict) -> dict:
         p["api_key"] = data["api_key"].strip()
     elif data.get("clear_key"):
         p.pop("api_key", None)
-    config.PROVIDERS[pid] = p
+    settings.providers[pid] = p
     if pid == "ollama":
-        config.OLLAMA_HOST = url
+        settings.update(ollama_host=url)
     _save()
     return p
 
@@ -141,7 +142,7 @@ def remove(pid: str):
     used = public(p)["used_by"]
     if used:
         raise ValueError(f"In use for {', '.join(used)}. Pick another model for it first.")
-    del config.PROVIDERS[pid]
+    del settings.providers[pid]
     _save()
 
 
@@ -150,14 +151,13 @@ def set_role(role: str, provider: str, model: str) -> dict:
     if role == "speech":
         if model not in SPEECH_MODELS:
             raise ValueError(f"Speech model must be one of {', '.join(SPEECH_MODELS)}")
-        config.WHISPER_MODEL = model
+        settings.update(whisper_model=model)
     elif role in _ROLE_ATTRS:
         get(provider)
         if not model:
             raise ValueError("Pick a model")
         prov_attr, model_attr = _ROLE_ATTRS[role]
-        setattr(config, prov_attr, provider)
-        setattr(config, model_attr, model)
+        settings.update(**{prov_attr: provider, model_attr: model})
     else:
         raise ValueError(f"Unknown role '{role}'")
     _save()
@@ -165,7 +165,7 @@ def set_role(role: str, provider: str, model: str) -> dict:
 
 
 def is_ollama(role: str) -> bool:
-    return get(getattr(config, _ROLE_ATTRS[role][0]))["kind"] == "ollama"
+    return get(getattr(settings, _ROLE_ATTRS[role][0]))["kind"] == "ollama"
 
 
 # ---------- talking to providers ----------
@@ -219,8 +219,8 @@ def _why(e: Exception) -> str:
 def chat_model(provider: str | None = None, model: str | None = None, **ollama_options):
     """LangChain chat model for the agent role (or the given provider/model).
     ollama_options only apply to Ollama."""
-    p = get(provider or config.AGENT_PROVIDER)
-    model = model or config.AGENT_MODEL
+    p = get(provider or settings.agent_provider)
+    model = model or settings.agent_model
     if p["kind"] == "ollama":
         from langchain_ollama import ChatOllama
 
@@ -236,8 +236,8 @@ def chat_model(provider: str | None = None, model: str | None = None, **ollama_o
 def describe_image(prompt: str, png: bytes, max_tokens: int = 200, provider: str | None = None, model: str | None = None) -> str:
     """One image + prompt to the vision role's model (or the given provider/model); returns the reply
     on one line. Raises ConnectionError when the provider can't be reached (indexing then stops that pass)."""
-    p = get(provider or config.VISION_PROVIDER)
-    model = model or config.CAPTION_MODEL
+    p = get(provider or settings.vision_provider)
+    model = model or settings.caption_model
     if p["kind"] == "ollama":
         import ollama
 
@@ -245,8 +245,8 @@ def describe_image(prompt: str, png: bytes, max_tokens: int = 200, provider: str
             model=model,
             messages=[{"role": "user", "content": prompt, "images": [png]}],
             think=False,
-            keep_alive=config.INDEX_KEEP_ALIVE,
-            options=config.ollama_options(num_predict=max_tokens, num_ctx=4096, temperature=0),
+            keep_alive=limits.INDEX_KEEP_ALIVE,
+            options=settings.ollama_options(num_predict=max_tokens, num_ctx=4096, temperature=0),
         )
         return " ".join(resp.message.content.split())
     import openai
@@ -387,7 +387,7 @@ def pull(model: str) -> dict:
         import ollama
 
         try:
-            for ev in ollama.Client(host=config.PROVIDERS["ollama"]["base_url"]).pull(model, stream=True):
+            for ev in ollama.Client(host=settings.providers["ollama"]["base_url"]).pull(model, stream=True):
                 st.update(status=ev.status or st["status"], completed=ev.completed or st["completed"], total=ev.total or st["total"])
             st["status"] = "done"
         except Exception as e:

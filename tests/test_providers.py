@@ -5,7 +5,7 @@ import stat
 
 import pytest
 
-from conftest import ScriptedModel, tool_call
+from conftest import tool_call
 
 
 def add(client, **body):
@@ -83,43 +83,33 @@ def test_unreachable_provider_test_says_so(env, local):
     assert r["ok"] is False and "connect" in r["message"].lower()
 
 
-def test_check_passes_a_chat_model_that_calls_tools(env, local, monkeypatch):
-    from lumen import providers
-
-    fake = ScriptedModel(script=[tool_call("search_files", query="invoices")])
-    monkeypatch.setattr(providers, "chat_model", lambda *a, **k: fake)
-    monkeypatch.setattr(providers, "_ollama_caps", lambda p, m: ["completion", "tools"])
+def test_check_passes_a_chat_model_that_calls_tools(env, local, model, ollama_caps):
+    model.script = [tool_call("search_files", query="invoices")]
+    ollama_caps(["completion", "tools"])
     r = local.post("/api/models/check", json={"role": "agent", "provider": "ollama", "model": "m"}).json()
     assert r["ok"] is True
     assert [c["name"] for c in r["checks"]] == ["Answers", "Calls tools"]
 
 
-def test_check_fails_a_chat_model_that_answers_in_text(env, local, monkeypatch):
+def test_check_fails_a_chat_model_that_answers_in_text(env, local, model, ollama_caps):
     from langchain_core.messages import AIMessage
 
-    from lumen import providers
-
-    fake = ScriptedModel(script=[AIMessage(content="Here are your invoices!")])
-    monkeypatch.setattr(providers, "chat_model", lambda *a, **k: fake)
-    monkeypatch.setattr(providers, "_ollama_caps", lambda p, m: ["completion", "tools"])
+    model.script = [AIMessage(content="Here are your invoices!")]
+    ollama_caps(["completion", "tools"])
     r = local.post("/api/models/check", json={"role": "agent", "provider": "ollama", "model": "m"}).json()
     assert r["ok"] is False and "instead of calling the search tool" in r["checks"][-1]["detail"]
 
 
-def test_check_uses_what_ollama_reports_a_model_can_do(env, local, monkeypatch):
-    from lumen import providers
-
-    monkeypatch.setattr(providers, "_ollama_caps", lambda p, m: ["completion"])
+def test_check_uses_what_ollama_reports_a_model_can_do(env, local, ollama_caps):
+    ollama_caps(["completion"])
     r = local.post("/api/models/check", json={"role": "vision", "provider": "ollama", "model": "m"}).json()
     assert r["ok"] is False and "can't see images" in r["checks"][0]["detail"]
 
 
-def test_vision_check_reads_the_test_picture(env, local, monkeypatch):
-    from lumen import providers
-
-    monkeypatch.setattr(providers, "_ollama_caps", lambda p, m: ["vision"])
-    monkeypatch.setattr(providers, "describe_image", lambda *a, **k: "4721")
+def test_vision_check_reads_the_test_picture(env, local, ollama_caps, vision):
+    ollama_caps(["vision"])
+    vision.reply = "4721"
     r = local.post("/api/models/check", json={"role": "vision", "provider": "ollama", "model": "m"}).json()
     assert r["ok"] is True
-    monkeypatch.setattr(providers, "describe_image", lambda *a, **k: "a white box")
+    vision.reply = "a white box"
     assert local.post("/api/models/check", json={"role": "vision", "provider": "ollama", "model": "m"}).json()["ok"] is False

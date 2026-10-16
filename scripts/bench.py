@@ -19,7 +19,7 @@ from pathlib import Path
 
 import ollama
 
-from lumen import config
+from lumen.core.settings import settings
 from lumen.agent import Session
 from lumen.caption import PROMPT, _render
 from lumen.media import describe_frames
@@ -110,9 +110,9 @@ def measure(name, fn):
 
 
 def main():
-    mode = "CPU only" if config.CPU_ONLY else "GPU"
-    client = ollama.Client(host=config.OLLAMA_HOST)
-    model = config.AGENT_MODEL
+    mode = "CPU only" if settings.cpu_only else "GPU"
+    client = ollama.Client(host=settings.ollama_host)
+    model = settings.agent_model
     # Start cold so both modes pay the same load cost
     for m in client.ps().models:
         client.generate(model=m.model, prompt="", keep_alive=0)
@@ -122,7 +122,7 @@ def main():
     res = {"mode": mode}
 
     res["load"] = measure("model load", lambda: client.generate(
-        model=model, prompt="hi", keep_alive="10m", options=config.ollama_options(num_predict=1, num_ctx=config.NUM_CTX)
+        model=model, prompt="hi", keep_alive="10m", options=settings.ollama_options(num_predict=1, num_ctx=settings.num_ctx)
     ) and None)
     placement = next((m for m in client.ps().models if m.model == model), None)
     res["placement"] = f"{placement.size_vram / 2**30:.1f} GB on GPU of {placement.size / 2**30:.1f} GB" if placement else "?"
@@ -141,7 +141,7 @@ def main():
 
     def gen_speed():
         r = client.generate(model=model, prompt="Write 120 words about file search.", think=False,
-                            options=config.ollama_options(num_predict=160, temperature=0, num_ctx=config.NUM_CTX))
+                            options=settings.ollama_options(num_predict=160, temperature=0, num_ctx=settings.num_ctx))
         return f"{r.eval_count / (r.eval_duration / 1e9):.1f} tok/s generation, prompt {r.prompt_eval_count / (r.prompt_eval_duration / 1e9):.0f} tok/s"
     res["speed"] = measure("token speed", gen_speed)
 
@@ -151,7 +151,7 @@ def main():
             kind = "scanned document page" if p.suffix == ".pdf" else "image"
             r = client.chat(model=model, think=False, keep_alive="10m",
                             messages=[{"role": "user", "content": PROMPT.format(kind=kind), "images": [_render(str(p))]}],
-                            options=config.ollama_options(num_predict=200, num_ctx=4096, temperature=0))
+                            options=settings.ollama_options(num_predict=200, num_ctx=4096, temperature=0))
             lens.append(len(r.message.content))
         return f"{len(IMAGES)} images, avg {sum(lens) // len(lens)} chars"
     res["captions"] = measure("captions (4 images)", captions)

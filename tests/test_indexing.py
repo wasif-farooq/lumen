@@ -3,7 +3,7 @@
 import os
 import time
 
-from conftest import index_now
+from conftest import OPEN_INDEX_CODE, index_now
 
 
 def names(client, q, **params):
@@ -105,11 +105,9 @@ def test_folder_actions_need_an_indexed_folder(indexed, local, tmp_path):
     assert local.post("/api/folders/pause", json={"path": str(tmp_path)}).status_code == 404
 
 
-def test_folder_changes_are_refused_while_indexing_runs(indexed, local, monkeypatch):
-    from lumen import server
-
+def test_folder_changes_are_refused_while_indexing_runs(indexed, local, indexer, monkeypatch):
     with monkeypatch.context() as m:
-        m.setattr(type(server._indexer), "running", property(lambda self: True))
+        indexer.pretend_running(m)
         r = local.post("/api/folders/pause", json={"path": str(indexed.downloads.resolve())})
     assert r.status_code == 409
 
@@ -119,7 +117,6 @@ def test_a_new_index_can_be_opened_by_several_processes_at_once(env):
     import subprocess
     import sys
 
-    code = "from lumen import index; index.connect().close()"
-    procs = [subprocess.Popen([sys.executable, "-c", code], stderr=subprocess.PIPE) for _ in range(12)]
+    procs = [subprocess.Popen([sys.executable, "-c", OPEN_INDEX_CODE], stderr=subprocess.PIPE) for _ in range(12)]
     errors = [p.communicate()[1].decode() for p in procs if p.wait() != 0]
     assert errors == []
