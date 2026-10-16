@@ -1,0 +1,55 @@
+# Tests and lints on every push and pull request.
+name: Checks
+
+on:
+  push:
+    branches: ["**"]
+    tags-ignore: ["v*"] # releases build in release.yml
+  pull_request:
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  server:
+    name: Server (Python)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+      - name: Install
+        run: uv sync --frozen
+      - name: Lint (real errors; the full rule set from the Phase 4 clean-up)
+        run: uv run ruff check --select F,E9 lumen tests scripts
+      - name: Tests
+        run: uv run pytest -p no:warnings
+
+  app:
+    name: App (Flutter)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.7" # same as docker/flutter-linux.Dockerfile
+          cache: true
+      - run: flutter pub get
+      - name: Analyze
+        run: flutter analyze
+      - name: Tests (screens are compared with app/test/screens)
+        run: flutter test
+      - name: Keep the screen differences if a comparison fails
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: screen-differences
+          path: app/test/failures/
+          if-no-files-found: ignore

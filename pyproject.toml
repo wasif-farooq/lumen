@@ -27,3 +27,24 @@ lumen = "lumen.__main__:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.17.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+# The target rule set. CI enforces only real errors (F, E9) until the Phase 4 clean-up (docs/REFACTOR.md).
+select = ["E", "W", "F", "I", "B", "UP", "SIM"]
+ignore = [
+    "B008",  # FastAPI's Depends(...) in argument defaults is the intended pattern
+]

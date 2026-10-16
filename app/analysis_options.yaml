@@ -1,3 +1,5 @@
+# Flutter's recommended lints plus stricter rules. More rules are switched on as the refactor
+# reaches them (docs/REFACTOR.md): error handling in Phase 3, style in Phase 4.
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
@@ -5,3 +7,12 @@ analyzer:
     - build/**
     - android/**
     - linux/**
+
+linter:
+  rules:
+    - always_declare_return_types
+    - avoid_print
+    - cancel_subscriptions
+    - close_sinks
+    - prefer_single_quotes
+    - use_build_context_synchronously
