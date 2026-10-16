@@ -2,12 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../app_state.dart';
-import '../theme.dart';
-import '../widgets/cards.dart';
-import '../widgets/common.dart';
-import 'index_screen.dart';
-import 'models_screen.dart';
+import '../../core/app_state.dart';
+import '../../shared/theme.dart';
+import '../../shared/widgets/cards.dart';
+import '../../shared/widgets/common.dart';
+import '../sync/sync_screen.dart';
+import '../models/models_screen.dart';
 
 /// Settings with tabs: General · Models · Sync.
 class SettingsScreen extends StatefulWidget {
@@ -128,7 +128,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
 
   Future<void> _load() async {
     try {
-      final r = await Future.wait([s.api.settings(), s.api.devices().catchError((_) => <dynamic>[])]);
+      final r = await Future.wait([s.api.settings(), s.api.devices().catchError((_) => <Map<String, dynamic>>[])]);
       await s.refreshStatus();
       if (!mounted) return;
       setState(() {

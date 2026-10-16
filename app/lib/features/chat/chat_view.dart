@@ -1,13 +1,13 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 
-import 'photo_picker.dart';
+import '../../shared/widgets/photo_picker.dart';
 
-import '../api.dart';
-import '../app_state.dart';
-import '../theme.dart';
-import 'common.dart';
+import '../../core/app_state.dart';
+import '../../shared/theme.dart';
+import '../../shared/widgets/common.dart';
 import 'results.dart';
+import '../../core/format.dart';
 
 /// The conversation: user bubbles, tool chips, result cards and answers.
 class ChatView extends StatefulWidget {

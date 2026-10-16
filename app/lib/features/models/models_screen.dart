@@ -2,11 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../api.dart';
-import '../app_state.dart';
-import '../theme.dart';
-import '../widgets/cards.dart';
-import '../widgets/common.dart';
+import '../../core/app_state.dart';
+import '../../shared/theme.dart';
+import '../../shared/widgets/cards.dart';
+import '../../core/format.dart';
 
 /// Providers & models: which model does each job, the providers they come from, Ollama downloads.
 class ModelsScreen extends StatefulWidget {
@@ -165,7 +164,7 @@ class _ModelsScreenState extends State<ModelsScreen> {
       await s.api.setRole(role, pid, model);
       await Future.wait([_load(), s.refreshStatus()]);
       _toast('$title now uses $model${role == 'vision' ? '. It applies from the next indexing run.' : ''}');
-    } on ApiException catch (e) {
+    } on ApiError catch (e) {
       _toast(e.message);
     }
   }
@@ -175,7 +174,7 @@ class _ModelsScreenState extends State<ModelsScreen> {
       await s.api.setRole('speech', 'local', model);
       await Future.wait([_load(), s.refreshStatus()]);
       _toast('Speech uses whisper-$model from the next indexing run.');
-    } on ApiException catch (e) {
+    } on ApiError catch (e) {
       _toast(e.message);
     }
   }
@@ -203,7 +202,7 @@ class _ModelsScreenState extends State<ModelsScreen> {
     try {
       await s.api.deleteProvider(p['id']);
       await _load();
-    } on ApiException catch (e) {
+    } on ApiError catch (e) {
       _toast(e.message);
     }
   }
@@ -213,7 +212,7 @@ class _ModelsScreenState extends State<ModelsScreen> {
     try {
       await s.api.pullModel(model.trim());
       await _load();
-    } on ApiException catch (e) {
+    } on ApiError catch (e) {
       _toast(e.message);
     }
   }
@@ -716,7 +715,7 @@ class _ProviderDialogState extends State<_ProviderDialog> {
         if (_clearKey) 'clear_key': true,
       });
       if (mounted) Navigator.pop(context, saved);
-    } on ApiException catch (e) {
+    } on ApiError catch (e) {
       setState(() => error = e.message);
     } catch (e) {
       setState(() => error = '$e');

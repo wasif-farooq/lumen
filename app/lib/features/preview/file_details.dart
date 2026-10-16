@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../api.dart';
-import '../theme.dart';
-import 'common.dart';
-import 'results.dart';
+import '../../core/app_state.dart';
+import '../../shared/theme.dart';
+import '../../shared/widgets/common.dart';
+import '../chat/results.dart';
+import '../../core/format.dart';
 
 /// Right-hand panel (desktop) / sheet body (mobile): preview, details, transcript, actions.
 class FileDetails extends StatefulWidget {

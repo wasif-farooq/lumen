@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../theme.dart';
-import 'common.dart';
+import '../../shared/theme.dart';
+import '../../shared/widgets/common.dart';
+import '../../core/format.dart';
 
 /// The passes an index run goes through, in order (names match the server's events).
 const indexPhases = [

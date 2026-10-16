@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../api.dart';
-import '../theme.dart';
-import 'common.dart';
+import '../../core/app_state.dart';
+import '../../shared/theme.dart';
+import '../../shared/widgets/common.dart';
+import '../../core/format.dart';
 
 typedef HitAction = void Function(Hit hit, {double start});
 

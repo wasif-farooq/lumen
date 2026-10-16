@@ -23,6 +23,7 @@ __pycache__/
 # --- Model downloads and caches ---
 hf/
 models/
+!app/lib/**/models/
 *.gguf
 *.onnx
 

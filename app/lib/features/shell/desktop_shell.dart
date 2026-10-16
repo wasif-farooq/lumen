@@ -1,13 +1,12 @@
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 
-import '../api.dart';
-import '../app_state.dart';
-import '../theme.dart';
-import '../widgets/chat_view.dart';
-import '../widgets/common.dart';
-import '../widgets/preview_panel.dart';
-import 'settings_screen.dart';
+import '../../core/app_state.dart';
+import '../../shared/theme.dart';
+import '../chat/chat_view.dart';
+import '../../shared/widgets/common.dart';
+import '../preview/file_details.dart';
+import '../settings/settings_screen.dart';
 
 /// Desktop layout: conversations | chat | file preview.
 class DesktopShell extends StatefulWidget {

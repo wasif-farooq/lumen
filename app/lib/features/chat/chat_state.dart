@@ -1,14 +1,15 @@
 import 'package:flutter/foundation.dart';
 
-import 'api.dart';
+import '../../core/api/api.dart';
+import '../../core/errors/errors.dart';
+import '../../core/models/chat.dart';
+import '../../core/models/hit.dart';
 
-/// Conversations, the current chat and the selected file, shared by desktop and mobile.
-class AppState extends ChangeNotifier {
-  AppState(this.api);
-
-  Api api;
-  Map<String, dynamic>? status;
-  String? connectError;
+/// Conversations: the list, the open chat and its events, the selected file, and running a
+/// turn of the agent. Part of AppState.
+mixin ChatState on ChangeNotifier {
+  Api get api;
+  String get host;
 
   List<Chat> chats = [];
   String? chatId;
@@ -17,39 +18,14 @@ class AppState extends ChangeNotifier {
   String? working; // "Searching your files…" while the agent runs a tool
   Hit? selected;
 
-  String get host => status?['host'] ?? 'laptop';
-  String get model => status?['models']?['agent'] ?? '';
-  bool get cpuOnly => status?['models']?['cpu_only'] == true;
-  String get agentProvider => status?['models']?['agent_provider'] ?? 'Ollama';
-  bool get agentCloud => status?['models']?['agent_cloud'] == true;
-  String get visionProvider => status?['models']?['vision_provider'] ?? 'Ollama';
-  bool get visionCloud => status?['models']?['vision_cloud'] == true;
-
-  Future<bool> connect() async {
-    try {
-      status = await api.status();
-      chats = await api.chats();
-      connectError = null;
-      notifyListeners();
-      return true;
-    } catch (e) {
-      connectError = '$e';
-      notifyListeners();
-      return false;
-    }
-  }
-
-  Future<void> refreshStatus() async {
-    try {
-      status = await api.status();
-      notifyListeners();
-    } catch (_) {}
-  }
-
   Future<void> openChat(String id) async {
     chatId = id;
     selected = null;
-    events = await api.events(id);
+    try {
+      events = await api.events(id);
+    } on ApiError catch (e) {
+      events = [ChatEvent('error', {'text': 'Could not load this chat: ${e.message}'})];
+    }
     final lastResults = events.where((e) => e.type == 'results' && e.hits.isNotEmpty).lastOrNull;
     selected = lastResults?.hits.first;
     notifyListeners();
@@ -62,6 +38,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Delete a chat; throws ApiError when the server refuses (the caller shows it).
   Future<void> deleteChat(String id) async {
     await api.deleteChat(id);
     chats.removeWhere((c) => c.id == id);
@@ -93,8 +70,9 @@ class AppState extends ChangeNotifier {
     try {
       final msg = await api.undo(actionId, chatId);
       events.add(ChatEvent('undone', {'action_id': actionId, 'text': msg}));
-    } catch (e) {
-      events.add(ChatEvent('error', {'text': 'Could not undo: $e'}));
+    } on Object catch (e, st) {
+      logUnexpected('undo', e, st);
+      events.add(ChatEvent('error', {'text': 'Could not undo: ${userMessage(e)}'}));
     }
     notifyListeners();
   }
@@ -121,7 +99,7 @@ class AppState extends ChangeNotifier {
           case 'done':
             break;
           case 'tool_call':
-            working = _describeTool(e.data['name']);
+            working = _describeTool(e.data['name'] as String?);
             events.add(e);
           case 'results':
             events.add(e);
@@ -133,8 +111,10 @@ class AppState extends ChangeNotifier {
         notifyListeners();
       }
       chats = await api.chats();
-    } catch (e) {
-      events.add(ChatEvent('error', {'text': 'Lost connection to $host: $e'}));
+    } on Object catch (e, st) {
+      logUnexpected('chat turn', e, st);
+      final lost = e is ApiError && e.isConnection;
+      events.add(ChatEvent('error', {'text': lost ? 'Lost connection to $host. ${e.message}' : userMessage(e)}));
     } finally {
       busy = false;
       working = null;
@@ -159,8 +139,9 @@ class AppState extends ChangeNotifier {
       final last = events.where((e) => e.type == 'results').lastOrNull;
       selected = (last == null || last.hits.isEmpty) ? selected : last.hits.first;
       chats = await api.chats();
-    } catch (e) {
-      events.add(ChatEvent('error', {'text': 'Could not search images: $e'}));
+    } on Object catch (e, st) {
+      logUnexpected('find similar', e, st);
+      events.add(ChatEvent('error', {'text': 'Could not search images: ${userMessage(e)}'}));
     } finally {
       busy = false;
       working = null;

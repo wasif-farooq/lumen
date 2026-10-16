@@ -3,12 +3,11 @@ import 'dart:async';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
-import '../api.dart';
-import '../app_state.dart';
-import '../theme.dart';
-import '../widgets/cards.dart';
-import '../widgets/common.dart';
-import '../widgets/index_progress.dart';
+import '../../core/app_state.dart';
+import '../../shared/theme.dart';
+import '../../shared/widgets/cards.dart';
+import 'index_progress.dart';
+import '../../core/format.dart';
 
 /// Sync: what is indexed and the live indexing run. Preferences live in SettingsScreen.
 class IndexScreen extends StatefulWidget {
@@ -75,7 +74,7 @@ class _IndexScreenState extends State<IndexScreen> {
       await s.api.runIndex();
       await _tick();
       _toast(done);
-    } on ApiException catch (e) {
+    } on ApiError catch (e) {
       // A folder that could not be added needs to be seen, not flash by in a snackbar
       if (mounted) {
         await showDialog(
@@ -186,7 +185,7 @@ class _IndexScreenState extends State<IndexScreen> {
       await _tick();
       if (mounted) setState(() => settings = r[0] as Map<String, dynamic>);
       _toast(done());
-    } on ApiException catch (e) {
+    } on ApiError catch (e) {
       _toast(e.message);
     } catch (e) {
       _toast('$e');
