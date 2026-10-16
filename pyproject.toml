@@ -1,6 +1,6 @@
 [project]
 name = "lumen"
-version = "0.1.1"
+version = "0.2.0"
 description = "Local AI assistant for your files: find, open and ask about documents, photos and videos."
 license = "MIT"
 readme = "README.md"

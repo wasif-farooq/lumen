@@ -99,12 +99,12 @@ build's import check still named the old `lumen.server` (fixed).
 - [x] Dart: `unawaited_futures`, `prefer_final_locals`, `directives_ordering`, `unnecessary_lambdas` on
 - [x] ruff, pyright and Dart lints clean with no ignores in the code (only rule-level choices in `pyproject.toml`: `B008` for FastAPI's `Depends`, `ANN401`, and no `ANN` for tests)
 
-## Phase 5: Verify and release (ready for review)
+## Phase 5: Verify and release ✅
 
 - [x] Full test suite, lints, type checks: 130 server tests, 23 app tests, ruff (full rule set + format), pyright, flutter analyze; all green in CI
 - [x] Packages build (from a clean checkout, in Docker): `lumen_0.2.0-rc1_amd64.deb` (171 MB) and `Lumen-0.2.0-rc1-x86_64.AppImage` (226 MB). Smoke test of the packaged server: starts in 0.5 s, indexes, searches, answers a chat with the local model (qwen3.5:2b, 17 s, using its search tool), returns the new error shape, shuts down on SIGTERM, writes its logs. The app binary's libraries all resolve; the window itself was not opened (no display in the build container)
 - [x] README: install, logs and troubleshooting, architecture, contributor guide
-- [ ] Pull request reviewed and merged; tag v0.2.0 (the owner's call: review first)
+- [x] Pull request reviewed and merged; tagged v0.2.0
 
 ## Results
 
