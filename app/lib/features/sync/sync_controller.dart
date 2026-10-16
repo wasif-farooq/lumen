@@ -41,6 +41,9 @@ class SyncController extends ChangeNotifier {
   bool get paused => running && (progress?['paused'] == true || progress?['pausing'] == true);
   List<String> get lines => [for (final l in progress?['lines'] as List? ?? const []) '$l'];
   List<String> get roots => [for (final r in settings?['roots'] as List? ?? const []) '$r'];
+  /// Skip what .gitignore files in the indexed folders leave out (on unless turned off).
+  bool get gitignore => settings?['gitignore'] as bool? ?? true;
+
   List<String> get excluded => [for (final e in settings?['excluded'] as List? ?? const []) '$e'];
 
   /// Index passes switched on in the settings (the progress card shows only these).
@@ -145,6 +148,14 @@ class SyncController extends ChangeNotifier {
     final removed = await api.excludePath(path);
     await _reloadSettings();
     return removed;
+  }
+
+  /// Turn .gitignore files on or off, then re-index so the index matches at once.
+  Future<void> setGitignore({required bool on}) async {
+    settings = await api.saveSettings({'gitignore': on});
+    _changed();
+    await api.runIndex();
+    await tick();
   }
 
   Future<void> include(String path) async {

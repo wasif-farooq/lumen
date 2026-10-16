@@ -13,7 +13,7 @@ from ..core import limits
 from ..core.settings import settings
 from ..search import passages
 from ..storage.catalog import delete_file, drop_derived
-from . import power
+from . import gitignore, power
 from .extract import extract_text
 from .progress import Progress
 
@@ -21,17 +21,26 @@ PROGRESS_EVERY = 500  # files between progress reports (and pause checks) while 
 
 
 def walk(root: Path) -> Iterator[Path]:
-    """Files under a folder, skipping hidden files, dependency/build folders and excluded paths."""
+    """Files under a folder, skipping hidden files, dependency/build folders, excluded paths and,
+    when the setting is on, what .gitignore files leave out."""
     excluded = set(settings.excluded)
+    rules: dict[str, gitignore.Rules] = {}
     for dirpath, dirnames, filenames in os.walk(root):
-        # Prune hidden, dependency/build and excluded folders in place
-        dirnames[:] = [
-            d
-            for d in dirnames
-            if not d.startswith(".") and d not in limits.SKIP_DIRS and os.path.join(dirpath, d) not in excluded
-        ]
+        here = gitignore.rules_for(dirpath, rules.get(os.path.dirname(dirpath), ())) if settings.gitignore else ()
+        rules[dirpath] = here
+
+        def keep(name: str, is_dir: bool, dirpath: str = dirpath, here: gitignore.Rules = here) -> bool:
+            path = os.path.join(dirpath, name)
+            return (
+                not name.startswith(".")
+                and path not in excluded
+                and not (is_dir and name in limits.SKIP_DIRS)
+                and not (here and gitignore.ignored(path, is_dir, here))
+            )
+
+        dirnames[:] = [d for d in dirnames if keep(d, is_dir=True)]  # pruned in place: os.walk skips them
         for fn in filenames:
-            if not fn.startswith(".") and os.path.join(dirpath, fn) not in excluded:
+            if keep(fn, is_dir=False):
                 yield Path(dirpath) / fn
 
 

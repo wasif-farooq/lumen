@@ -61,7 +61,7 @@ class _IndexScreenState extends State<IndexScreen> {
             const SizedBox(height: 20),
             TwoColumns(children: [
               CardColumn(children: [FoldersCard(folders: folders, running: c.running, actions: actions)]),
-              CardColumn(children: [ExclusionsCard(excluded: c.excluded, running: c.running, actions: actions)]),
+              CardColumn(children: [ExclusionsCard(excluded: c.excluded, gitignore: c.gitignore, running: c.running, actions: actions)]),
             ]),
           ],
         );

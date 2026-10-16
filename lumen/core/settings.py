@@ -61,6 +61,7 @@ class Settings:
     media: bool = field(default_factory=lambda: _flag("MEDIA", True))  # describe video/audio
     transcripts: bool = field(default_factory=lambda: _flag("TRANSCRIPTS", True))
     visual: bool = field(default_factory=lambda: _flag("VISUAL", True))  # image signatures (CLIP)
+    gitignore: bool = field(default_factory=lambda: _flag("GITIGNORE", True))  # skip what .gitignore files leave out
 
     # Power: auto (AI passes only on AC power) | saver | performance
     power_mode: str = field(default_factory=lambda: env("POWER", "auto"))
