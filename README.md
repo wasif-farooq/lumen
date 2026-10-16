@@ -192,7 +192,7 @@ flutter test --update-goldens                 # after an intended UI change: ref
 
 CI runs all of these on every pull request.
 
-**Releases are automatic.** Every push to `main` that passes CI is tagged with the next version and its `.deb` and AppImage are published. The version goes up a patch (0.2.0 → 0.2.1); put `[minor]` or `[major]` in a commit message to go up further, or `[skip release]` to hold back. Pushes that only change documentation or CI make no release. The rules are in `.github/scripts/next-version.sh`, which you can run locally to see what the next release would be.
+**Releases are automatic.** Every push to `main` that passes CI is tagged with the next version and its `.deb` and AppImage are published. The version goes up a patch (0.2.0 → 0.2.1); put `[minor]` or `[major]` in a commit's title (its first line) to go up further, or `[skip release]` to hold back. Pushes that only change documentation or CI make no release. The rules are in `.github/scripts/next-version.sh`, which you can run locally to see what the next release would be.
 
 - **Tests describe behaviour through the HTTP API** (and the CLI), the way the app uses Lumen. Only `tests/conftest.py` knows the internal module layout, so code can move without rewriting tests.
 - **Every change of behaviour comes with a test**, and a bug fix with the test that would have caught it.

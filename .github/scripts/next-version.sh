@@ -4,8 +4,9 @@
 # Prints release=true|false, version=X.Y.Z and reason=… (also to $GITHUB_OUTPUT in Actions).
 #
 # The version goes up from the last v* tag: patch by default, or minor / major when a commit
-# message since that release says [minor] / [major]. No release when a message says
-# [skip release], or when only documentation and CI files changed.
+# title (first line) since that release says [minor] / [major]. No release when a title says
+# [skip release], or when only documentation and CI files changed. Only titles count, so a
+# message that merely mentions a marker in its text doesn't trigger it.
 set -euo pipefail
 
 sha="$(git rev-parse "${1:-HEAD}^{commit}")"
@@ -24,9 +25,9 @@ if [ "$(git rev-list -n 1 "$last")" = "$sha" ]; then
     exit 0
 fi
 
-messages="$(git log --format=%B "$last..$sha")"
+messages="$(git log --format=%s "$last..$sha")"
 if grep -qiF '[skip release]' <<<"$messages"; then
-    out release=false version= "reason=a commit says [skip release]"
+    out release=false version= "reason=a commit title says [skip release]"
     exit 0
 fi
 if ! git diff --name-only "$last" "$sha" | grep -qvE '^(docs/|\.github/)|\.md$|^LICENSE$'; then
