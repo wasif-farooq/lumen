@@ -1,7 +1,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **os-operator** (929 symbols, 2381 relationships, 78 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **lumen** (1081 symbols, 1654 relationships, 73 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -24,10 +24,10 @@ This project is indexed by GitNexus as **os-operator** (929 symbols, 2381 relati
 
 | Resource | Use for |
 |----------|---------|
-| `gitnexus://repo/os-operator/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/os-operator/clusters` | All functional areas |
-| `gitnexus://repo/os-operator/processes` | All execution flows |
-| `gitnexus://repo/os-operator/process/{name}` | Step-by-step execution trace |
+| `gitnexus://repo/lumen/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/lumen/clusters` | All functional areas |
+| `gitnexus://repo/lumen/processes` | All execution flows |
+| `gitnexus://repo/lumen/process/{name}` | Step-by-step execution trace |
 
 ## CLI
 
