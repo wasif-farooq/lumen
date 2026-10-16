@@ -8,11 +8,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lumen_app/core/app_state.dart';
-import 'package:lumen_app/features/shell/desktop_shell.dart';
-import 'package:lumen_app/features/sync/sync_screen.dart';
-import 'package:lumen_app/features/shell/mobile_chat.dart';
 import 'package:lumen_app/features/models/models_screen.dart';
 import 'package:lumen_app/features/settings/settings_screen.dart';
+import 'package:lumen_app/features/shell/desktop_shell.dart';
+import 'package:lumen_app/features/shell/mobile_chat.dart';
+import 'package:lumen_app/features/sync/sync_screen.dart';
 import 'package:lumen_app/shared/theme.dart';
 import 'package:lumen_app/shared/widgets/zoom.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,7 +21,7 @@ import 'helpers.dart';
 
 Api fakeApi() => Api('http://laptop', client: MockClient((req) async {
       final p = req.url.path;
-      String body = switch (p) {
+      final String body = switch (p) {
         '/api/status' => fixture('status'),
         '/api/chats' => fixture('chats'),
         '/api/settings' => fixture('settings'),
@@ -84,7 +84,7 @@ void main() {
 
   testWidgets('models: roles, providers and switching chat to a cloud model', (tester) async {
     final calls = <String>[];
-    var providers = jsonDecode(fixture('providers')) as Map<String, dynamic>;
+    final providers = jsonDecode(fixture('providers')) as Map<String, dynamic>;
     providers['pulls'] = [];
     final api = Api('http://laptop', client: MockClient((req) async {
       final p = req.url.path;

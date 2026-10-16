@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/app_state.dart';
+import '../../core/errors/run_guarded.dart';
+import '../../core/format.dart';
 import '../../shared/theme.dart';
 import '../../shared/widgets/common.dart';
 import '../chat/results.dart';
 import '../chat/video_card.dart';
 import 'file_details_parts.dart';
-import '../../core/format.dart';
-import '../../core/errors/run_guarded.dart';
 
 /// Right-hand panel (desktop) / sheet body (mobile): preview, details, transcript, actions.
 class FileDetails extends StatefulWidget {

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../core/models/json.dart';
 import '../../shared/theme.dart';
 import 'provider_badge.dart';
-import '../../core/models/json.dart';
 
 /// One job (chat, images & video, speech): the model it uses, where, and its last check.
 class RoleRow extends StatelessWidget {

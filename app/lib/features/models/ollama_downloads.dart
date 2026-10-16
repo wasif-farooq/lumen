@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../core/format.dart';
+import '../../core/models/json.dart';
 import '../../shared/theme.dart';
 import '../../shared/widgets/cards.dart';
-import '../../core/models/json.dart';
 
 /// Download an Ollama model by name, with progress for running downloads.
 class OllamaDownloads extends StatefulWidget {

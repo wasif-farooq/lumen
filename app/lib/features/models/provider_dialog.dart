@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/api.dart';
-import '../../shared/theme.dart';
 import '../../core/errors/errors.dart';
+import '../../shared/theme.dart';
 
 /// Ready-made addresses for common OpenAI-compatible servers.
 const _presets = [

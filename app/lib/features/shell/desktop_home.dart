@@ -1,14 +1,13 @@
 import 'dart:async';
-
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
+import '../../core/errors/errors.dart';
 import '../../shared/theme.dart';
 import '../../shared/widgets/common.dart';
 import 'desktop_shell.dart';
-import '../../core/errors/errors.dart';
 
 /// Desktop: talk to the server on this machine; offer to start it when it isn't running.
 class DesktopHome extends StatefulWidget {

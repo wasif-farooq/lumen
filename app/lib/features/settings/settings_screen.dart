@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import '../../core/app_state.dart';
 import '../../shared/theme.dart';
 import '../../shared/widgets/common.dart';
-import 'general_settings.dart';
 import '../models/models_screen.dart';
 import '../sync/sync_screen.dart';
+import 'general_settings.dart';
 
 /// Settings with tabs: General · Models · Sync.
 class SettingsScreen extends StatefulWidget {

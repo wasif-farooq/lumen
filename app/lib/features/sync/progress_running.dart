@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../core/models/json.dart';
 import '../../shared/theme.dart';
 import 'index_progress.dart';
 import 'progress_parts.dart';
-import '../../core/models/json.dart';
 
 /// A run in progress: step, progress bar, the file being worked on, recently finished files.
 List<Widget> runningView(Map<String, dynamic> p, List<IndexPhase> phases) {

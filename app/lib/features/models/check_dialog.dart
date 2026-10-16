@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/api/api.dart';
-import '../../shared/theme.dart';
 import '../../core/errors/errors.dart';
 import '../../core/models/json.dart';
+import '../../shared/theme.dart';
 
 /// Tries a model on a job and shows what passed. While choosing: "Use this model" when it works,
 /// "Pick another" or "Use anyway" when it doesn't. Pops 'use', 'another' or null.

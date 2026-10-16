@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/api/api.dart';
+import '../../core/errors/errors.dart';
 import '../../core/format.dart';
 import '../../shared/theme.dart';
 import 'provider_badge.dart';
-import '../../core/errors/errors.dart';
 
 /// Choose a provider, then one of its models (or type a name the list doesn't show).
 class ModelPicker extends StatefulWidget {

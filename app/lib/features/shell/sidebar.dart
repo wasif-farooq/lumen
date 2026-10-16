@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
+import '../../core/models/json.dart';
 import '../../shared/theme.dart';
 import '../../shared/widgets/common.dart';
-import '../../core/models/json.dart';
 
 /// Desktop sidebar: new chat, the chats, Settings, and the Sync tile (index size, power).
 class Sidebar extends StatelessWidget {

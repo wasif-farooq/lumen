@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../core/models/json.dart';
 import '../../shared/theme.dart';
 import 'progress_parts.dart';
-import '../../core/models/json.dart';
 
 /// When no run is going: how the last one went (or that it stopped, or crashed).
 List<Widget> summaryView(Map<String, dynamic> p, Map<String, dynamic>? lastRun) {

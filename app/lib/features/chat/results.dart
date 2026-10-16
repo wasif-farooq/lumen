@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
+import '../../core/format.dart';
 import '../../shared/theme.dart';
 import '../../shared/widgets/common.dart';
 import 'video_card.dart';
-import '../../core/format.dart';
 
 typedef HitAction = void Function(Hit hit, {double start});
 

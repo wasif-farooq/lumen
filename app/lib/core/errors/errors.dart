@@ -6,7 +6,7 @@ final _log = Log('app');
 /// What to tell people about an error: the server's own message when it sent one, never a raw
 /// exception from inside the app (those go to the log, and the message says so).
 String userMessage(Object error) => switch (error) {
-      ApiError e => e.message,
+      final ApiError e => e.message,
       _ => 'Something went wrong in the app. The details are in its log.',
     };
 

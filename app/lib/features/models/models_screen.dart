@@ -80,7 +80,7 @@ class _ModelsScreenState extends State<ModelsScreen> {
               SectionCard(
                 title: 'Providers',
                 trailing: OutlinedButton.icon(
-                  onPressed: () => actions.editProvider(),
+                  onPressed: actions.editProvider,
                   style: OutlinedButton.styleFrom(minimumSize: const Size(0, 36)),
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text('Add provider'),

@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
-
 import 'dart:async';
+
+import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
 import '../../core/errors/run_guarded.dart';

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
+import '../../core/models/json.dart';
 import '../../shared/theme.dart';
 import '../../shared/widgets/common.dart';
-import '../../core/models/json.dart';
 
 /// Above the chat: its title and which model answers (and where it runs).
 class ChatHeader extends StatelessWidget {
