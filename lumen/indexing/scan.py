@@ -20,8 +20,11 @@ def walk(root: Path):
     excluded = set(settings.excluded)
     for dirpath, dirnames, filenames in os.walk(root):
         # Prune hidden, dependency/build and excluded folders in place
-        dirnames[:] = [d for d in dirnames if not d.startswith(".") and d not in limits.SKIP_DIRS
-                       and os.path.join(dirpath, d) not in excluded]
+        dirnames[:] = [
+            d
+            for d in dirnames
+            if not d.startswith(".") and d not in limits.SKIP_DIRS and os.path.join(dirpath, d) not in excluded
+        ]
         for fn in filenames:
             if not fn.startswith(".") and os.path.join(dirpath, fn) not in excluded:
                 yield Path(dirpath) / fn
@@ -33,7 +36,9 @@ def words(s: str) -> str:
 
 
 def scan(conn, roots: list[Path], progress: Progress) -> dict:
-    known = {r["path"]: (r["id"], r["size"], r["mtime"]) for r in conn.execute("SELECT id, path, size, mtime FROM files")}
+    known = {
+        r["path"]: (r["id"], r["size"], r["mtime"]) for r in conn.execute("SELECT id, path, size, mtime FROM files")
+    }
     seen = set()
     stats = {"scanned": 0, "added": 0, "updated": 0, "removed": 0, "with_text": 0}
     started = time.time()

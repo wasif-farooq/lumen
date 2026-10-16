@@ -83,7 +83,7 @@ def parse_event(line: str) -> dict | None:
     if not line.startswith(EVENT_PREFIX):
         return None
     try:
-        event = json.loads(line[len(EVENT_PREFIX):])
+        event = json.loads(line[len(EVENT_PREFIX) :])
     except ValueError:
         return None
     return event if isinstance(event, dict) else None

@@ -1,14 +1,13 @@
 """What the app shows about this laptop: the index, folders, power, models; and the settings."""
 
-import logging
 import json
+import logging
 import os
 import socket
 
 from fastapi import APIRouter, Depends
 
-from ...core import errors
-from ...core import preferences
+from ...core import errors, preferences
 from ...core.settings import settings
 from ...indexing import power
 from ...providers import registry
@@ -43,14 +42,30 @@ def status(svc: Services = Depends(services)):
         "last_index": last,
         "indexing": svc.indexer.running,
         "index_paused": svc.indexer.state["paused"],
-        "folders": [{"path": str(r), "files": catalog.count_under(r), "paused": r in settings.paused_roots}
-                    for r in settings.roots],
-        "power": {"on_ac": power.on_ac(), "battery": power.battery_percent(), "mode": settings.power_mode,
-                  "ai_allowed": ai_allowed, "reason": why, "threads": power.threads()},
-        "models": {"agent": settings.agent_model, "vision": settings.caption_model, "speech": f"whisper-{settings.whisper_model}",
-                   "agent_provider": agent["name"], "vision_provider": vision["name"],
-                   "agent_cloud": registry.is_cloud(agent), "vision_cloud": registry.is_cloud(vision),
-                   "cpu_only": settings.cpu_only, "ollama_ok": ollama_ok, "loaded": loaded},
+        "folders": [
+            {"path": str(r), "files": catalog.count_under(r), "paused": r in settings.paused_roots}
+            for r in settings.roots
+        ],
+        "power": {
+            "on_ac": power.on_ac(),
+            "battery": power.battery_percent(),
+            "mode": settings.power_mode,
+            "ai_allowed": ai_allowed,
+            "reason": why,
+            "threads": power.threads(),
+        },
+        "models": {
+            "agent": settings.agent_model,
+            "vision": settings.caption_model,
+            "speech": f"whisper-{settings.whisper_model}",
+            "agent_provider": agent["name"],
+            "vision_provider": vision["name"],
+            "agent_cloud": registry.is_cloud(agent),
+            "vision_cloud": registry.is_cloud(vision),
+            "cpu_only": settings.cpu_only,
+            "ollama_ok": ollama_ok,
+            "loaded": loaded,
+        },
         "langfuse": bool(os.environ.get("LANGFUSE_PUBLIC_KEY")),
         "langfuse_host": os.environ.get("LANGFUSE_HOST", ""),
         "lan": svc.lan,
@@ -70,7 +85,7 @@ def put_settings(body: dict, svc: Services = Depends(services)):
         try:
             preferences.check_roots(body["roots"])
         except ValueError as e:
-            raise errors.InvalidInput(str(e))
+            raise errors.InvalidInput(str(e)) from e
     roots_before = list(settings.roots)
     out = preferences.update(body)
     if settings.cpu_only != before or settings.roots != roots_before:
@@ -98,9 +113,14 @@ def diagnostics(svc: Services = Depends(services)):
     except metadata.PackageNotFoundError:
         version = "dev"
     return {
-        "version": version, "python": platform.python_version(), "platform": platform.platform(),
-        "roles": registry.roles(), "power_mode": settings.power_mode, "cpu_only": settings.cpu_only,
-        "folders": len(settings.roots), "indexing": svc.indexer.running,
+        "version": version,
+        "python": platform.python_version(),
+        "platform": platform.platform(),
+        "roles": registry.roles(),
+        "power_mode": settings.power_mode,
+        "cpu_only": settings.cpu_only,
+        "folders": len(settings.roots),
+        "indexing": svc.indexer.running,
         "log_dir": str(lumen_logging.log_dir()),
         "logs": {c: tail(c) for c in lumen_logging.FILES},
     }

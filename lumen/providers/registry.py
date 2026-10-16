@@ -38,7 +38,9 @@ def load():
         saved = json.loads(_file().read_text())
     except (OSError, ValueError):
         return
-    settings.update(providers={**defaults(), **{p["id"]: p for p in saved.get("providers", []) if p.get("kind") in KINDS}})
+    settings.update(
+        providers={**defaults(), **{p["id"]: p for p in saved.get("providers", []) if p.get("kind") in KINDS}}
+    )
     settings.update(ollama_host=settings.providers["ollama"]["base_url"])
     roles = saved.get("roles", {})
     for role, (prov_attr, model_attr) in _ROLE_ATTRS.items():
@@ -92,9 +94,14 @@ def public(p: dict) -> dict:
     """What the app may see: never the API key itself."""
     key = p.get("api_key") or ""
     return {
-        "id": p["id"], "name": p["name"], "kind": p["kind"], "base_url": p["base_url"],
-        "has_key": bool(key), "key_hint": f"…{key[-4:]}" if len(key) >= 8 else "",
-        "cloud": is_cloud(p), "builtin": p["id"] == "ollama",
+        "id": p["id"],
+        "name": p["name"],
+        "kind": p["kind"],
+        "base_url": p["base_url"],
+        "has_key": bool(key),
+        "key_hint": f"…{key[-4:]}" if len(key) >= 8 else "",
+        "cloud": is_cloud(p),
+        "builtin": p["id"] == "ollama",
         "used_by": [r for r, v in roles().items() if v["provider"] == p["id"]],
     }
 

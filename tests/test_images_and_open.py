@@ -4,9 +4,8 @@ import io
 
 import numpy as np
 import pytest
-from PIL import Image
-
 from conftest import index_now, sse, tool_call
+from PIL import Image
 
 COLOURS = {"red": (220, 30, 30), "green": (30, 200, 40), "blue": (30, 40, 220)}
 

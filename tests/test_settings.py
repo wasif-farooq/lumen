@@ -57,7 +57,9 @@ def test_data_folder_from_before_the_rename_is_kept(env, tmp_path):
 
 def test_a_new_process_starts_with_what_was_saved(env, local):
     local.put("/api/settings", json={"threads": 3})
-    p = local.post("/api/providers", json={"kind": "openai", "name": "LM", "base_url": "http://localhost:1234/v1"}).json()
+    p = local.post(
+        "/api/providers", json={"kind": "openai", "name": "LM", "base_url": "http://localhost:1234/v1"}
+    ).json()
     local.put("/api/roles", json={"role": "agent", "provider": p["id"], "model": "llama-3"})
     started = {"LUMEN_DATA": str(env.data), "LUMEN_ROOTS": str(env.documents)}
     assert setting_in_fresh_python(started, "threads", after_start=True) == "3"

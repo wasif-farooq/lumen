@@ -54,7 +54,9 @@ def run(a):
     if c and "error" in c:
         console.print(c["error"], style="yellow")
     elif c:
-        console.print(f"Captions ({settings.caption_model}): {c['captioned']} described, {c['failed']} failed, {c['seconds']}s")
+        console.print(
+            f"Captions ({settings.caption_model}): {c['captioned']} described, {c['failed']} failed, {c['seconds']}s"
+        )
     v = s.get("visual")
     if v and "error" in v:
         console.print(v["error"], style="yellow")
@@ -66,5 +68,6 @@ def run(a):
     elif m:
         console.print(
             f"Video/audio: {m['media']} indexed ({m['described']} described, {m['transcribed']} transcribed "
-            f"with whisper-{settings.whisper_model}), {m['reused']} duplicates reused, {m['failed']} failed, {m['seconds']}s"
+            f"with whisper-{settings.whisper_model}), {m['reused']} duplicates reused, {m['failed']} failed, "
+            f"{m['seconds']}s"
         )

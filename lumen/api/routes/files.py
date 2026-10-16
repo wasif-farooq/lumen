@@ -21,8 +21,16 @@ router = APIRouter(dependencies=[Depends(auth)])
 
 
 @router.get("/api/search")
-def search(q: str = "", ext: str = "", after: str = "", before: str = "", folder: str = "", limit: int = 20,
-           min_minutes: float = 0, max_minutes: float = 0):
+def search(
+    q: str = "",
+    ext: str = "",
+    after: str = "",
+    before: str = "",
+    folder: str = "",
+    limit: int = 20,
+    min_minutes: float = 0,
+    max_minutes: float = 0,
+):
     hits = text_search.search(q, ext, after, before, folder, min(max(limit, 1), 100), min_minutes, max_minutes)
     return [h.to_dict() for h in hits]
 
@@ -41,17 +49,29 @@ def file_info(path: str, at: float | None = None):
                 q = "SELECT start, end, text FROM segments WHERE file_id=? AND start BETWEEN ? AND ? ORDER BY start"
                 segs = conn.execute(q, (row["id"], at - 30, at + 60)).fetchall()
             else:
-                segs = conn.execute("SELECT start, end, text FROM segments WHERE file_id=? ORDER BY start LIMIT 300",
-                                    (row["id"],)).fetchall()
-            segments = [{"start": s["start"], "end": s["end"], "text": s["text"], "time": fmt_time(s["start"])} for s in segs]
+                segs = conn.execute(
+                    "SELECT start, end, text FROM segments WHERE file_id=? ORDER BY start LIMIT 300", (row["id"],)
+                ).fetchall()
+            segments = [
+                {"start": s["start"], "end": s["end"], "text": s["text"], "time": fmt_time(s["start"])} for s in segs
+            ]
     finally:
         conn.close()
     text = catalog.indexed_text(str(p))
     return {
-        "path": str(p), "name": p.name, "ext": ext, "kind": kind_of(ext), "size": st.st_size, "mtime": st.st_mtime,
-        "folder": str(p.parent), "indexed": row is not None, "searchable": bool(row and (row["has_text"] or row["caption"])),
-        "caption": (row["caption"] if row else "") or "", "duration": row["duration"] if row else None,
-        "excerpt": text[:1500], "segments": segments,
+        "path": str(p),
+        "name": p.name,
+        "ext": ext,
+        "kind": kind_of(ext),
+        "size": st.st_size,
+        "mtime": st.st_mtime,
+        "folder": str(p.parent),
+        "indexed": row is not None,
+        "searchable": bool(row and (row["has_text"] or row["caption"])),
+        "caption": (row["caption"] if row else "") or "",
+        "duration": row["duration"] if row else None,
+        "excerpt": text[:1500],
+        "segments": segments,
     }
 
 

@@ -28,7 +28,9 @@ def build(ctx) -> dict:
         emit({"type": "results", "hits": hits})
         if not hits:
             return "No matching images."
-        return "\n".join(f"{i}. {h['name']}  path: {h['path']}\n   shows: {h['snippet'][:160]}" for i, h in enumerate(hits, 1))
+        return "\n".join(
+            f"{i}. {h['name']}  path: {h['path']}\n   shows: {h['snippet'][:160]}" for i, h in enumerate(hits, 1)
+        )
 
     @tool
     def find_similar_images(target: str) -> str:
@@ -48,7 +50,8 @@ def build(ctx) -> dict:
         if not hits:
             return f"No images look like {path.name}."
         return f"Images that look like {path.name}:\n" + "\n".join(
-            f"{i}. {h['name']}  path: {h['path']}  similarity {h['score']}" for i, h in enumerate(hits, 1))
+            f"{i}. {h['name']}  path: {h['path']}  similarity {h['score']}" for i, h in enumerate(hits, 1)
+        )
 
     # ---- changes: each one pauses for the user's approval (LangGraph interrupt) ----
 

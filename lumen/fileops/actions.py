@@ -38,8 +38,15 @@ def execute(plan: dict) -> dict:
     elif op == "move":
         shutil.move(str(src), str(dst))
         _reindex_moved(src, dst)
-    entry = {"id": uuid.uuid4().hex[:12], "at": time.time(), "op": op, "src": fresh.get("src"), "dst": str(dst),
-             "summary": fresh["summary"], "undone": False}
+    entry = {
+        "id": uuid.uuid4().hex[:12],
+        "at": time.time(),
+        "op": op,
+        "src": fresh.get("src"),
+        "dst": str(dst),
+        "summary": fresh["summary"],
+        "undone": False,
+    }
     journal.append(entry)
     return {**entry, "dry_run": False, "message": f"Done: {fresh['summary']}"}
 
@@ -100,12 +107,16 @@ def _reindex_moved(src: Path, dst: Path):
             "SELECT id, path FROM files WHERE path = ? OR path LIKE ?", (str(src), str(src) + os.sep + "%")
         ).fetchall()
         for r in rows:
-            new = Path(str(dst) + r["path"][len(str(src)):])
+            new = Path(str(dst) + r["path"][len(str(src)) :])
             if not any(new == root or new.is_relative_to(root) for root in settings.roots):
                 continue
-            conn.execute("UPDATE files SET path=?, name=?, ext=? WHERE id=?",
-                         (str(new), new.name, new.suffix.lower().lstrip("."), r["id"]))
-            conn.execute("UPDATE files_fts SET name=?, path=? WHERE rowid=?", (words(new.stem), words(str(new.parent)), r["id"]))
+            conn.execute(
+                "UPDATE files SET path=?, name=?, ext=? WHERE id=?",
+                (str(new), new.name, new.suffix.lower().lstrip("."), r["id"]),
+            )
+            conn.execute(
+                "UPDATE files_fts SET name=?, path=? WHERE rowid=?", (words(new.stem), words(str(new.parent)), r["id"])
+            )
         conn.commit()
     finally:
         conn.close()

@@ -1,8 +1,7 @@
 """Chats with the agent (scripted model), and file changes: approve, cancel, undo."""
 
-from langchain_core.messages import AIMessage
-
 from conftest import agent_tool_names, sse, tool_call
+from langchain_core.messages import AIMessage
 
 
 def new_chat(client) -> str:
@@ -88,7 +87,10 @@ def test_cancelled_change_does_nothing(indexed, local, model):
 def test_moving_a_file_keeps_it_searchable_and_undo_moves_it_back(indexed, local, model):
     src = indexed.files["recipe"]
     dst = indexed.documents / "lentil-soup.md"
-    model.script = [tool_call("move_file", source=str(src), destination=str(indexed.documents)), AIMessage(content="Moved.")]
+    model.script = [
+        tool_call("move_file", source=str(src), destination=str(indexed.documents)),
+        AIMessage(content="Moved."),
+    ]
     chat = new_chat(local)
     ask(local, chat, "move the soup recipe to Documents")
     done = sse(local.post(f"/api/chats/{chat}/approve", json={"approved": True}))

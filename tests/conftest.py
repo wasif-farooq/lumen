@@ -37,14 +37,13 @@ from langchain_core.messages import AIMessage  # noqa: E402
 from langchain_core.outputs import ChatGeneration, ChatResult  # noqa: E402
 from pydantic import Field  # noqa: E402
 
-from lumen.api.app import create_app  # noqa: E402
 from lumen.agent.tools import make_tools  # noqa: E402
-
-from lumen.providers import backends, checks, registry  # noqa: E402
+from lumen.api.app import create_app  # noqa: E402
+from lumen.core.settings import settings  # noqa: E402
 from lumen.indexing.passes import media  # noqa: E402
 from lumen.indexing.pipeline import build_index  # noqa: E402
+from lumen.providers import backends, checks, registry  # noqa: E402
 from lumen.search import images as visual  # noqa: E402
-from lumen.core.settings import settings  # noqa: E402
 
 OLD = time.mktime((2019, 6, 1, 12, 0, 0, 0, 0, -1))
 
@@ -118,11 +117,25 @@ def env(tmp_path, monkeypatch) -> Env:
 
     # In-process settings
     for name, value in {
-        "data_dir": e.data, "roots": roots, "paused_roots": [], "excluded": [], "power_mode": "saver",
-        "captions": False, "media": False, "visual": False, "transcripts": False, "open_mode": "print",
-        "write_enabled": True, "cpu_only": False, "threads": 4, "ollama_host": "http://127.0.0.1:9",
-        "agent_provider": "ollama", "vision_provider": "ollama", "agent_model": "qwen3.5:2b",
-        "caption_model": "qwen3.5:2b", "whisper_model": "small",
+        "data_dir": e.data,
+        "roots": roots,
+        "paused_roots": [],
+        "excluded": [],
+        "power_mode": "saver",
+        "captions": False,
+        "media": False,
+        "visual": False,
+        "transcripts": False,
+        "open_mode": "print",
+        "write_enabled": True,
+        "cpu_only": False,
+        "threads": 4,
+        "ollama_host": "http://127.0.0.1:9",
+        "agent_provider": "ollama",
+        "vision_provider": "ollama",
+        "agent_model": "qwen3.5:2b",
+        "caption_model": "qwen3.5:2b",
+        "whisper_model": "small",
     }.items():
         monkeypatch.setattr(settings, name, value)
     monkeypatch.setattr(settings, "providers", registry.defaults())
@@ -167,6 +180,7 @@ def wait_until(check, timeout: float = 30, step: float = 0.1):
 
 # ---------- a scripted chat model ----------
 
+
 def tool_call(name: str, **args) -> AIMessage:
     return AIMessage(content="", tool_calls=[{"name": name, "args": args, "id": f"call_{name}", "type": "tool_call"}])
 
@@ -209,13 +223,16 @@ def sse(response) -> list[dict]:
 
 # ---------- hooks for tests: every reach into Lumen's internals goes through these ----------
 
+
 @pytest.fixture
 def set_settings(env, monkeypatch):
     """Change settings for one test, e.g. set_settings(captions=True)."""
+
     def apply(**values):
         for name, value in values.items():
             assert hasattr(settings, name), name
             monkeypatch.setattr(settings, name, value)
+
     return apply
 
 
@@ -260,8 +277,10 @@ def speech(env, monkeypatch):
 @pytest.fixture
 def ollama_caps(env, monkeypatch):
     """What Ollama reports a model can do: call with a list, e.g. ollama_caps(["completion", "tools"])."""
+
     def use(caps):
         monkeypatch.setattr(checks, "ollama_caps", lambda p, m: caps)
+
     return use
 
 
@@ -332,8 +351,9 @@ def setting_in_fresh_python(env_vars: dict, name: str, after_start: bool = False
     clean = {k: v for k, v in os.environ.items() if not k.startswith(("LUMEN_", "OS_OPERATOR_"))}
     load = "from lumen.core.bootstrap import load_saved_state; load_saved_state(); " if after_start else ""
     code = f"{load}from lumen.core.settings import settings; print(settings.{name})"
-    out = subprocess.run([sys.executable, "-c", code], env={**clean, **env_vars}, capture_output=True, text=True,
-                         check=True)
+    out = subprocess.run(
+        [sys.executable, "-c", code], env={**clean, **env_vars}, capture_output=True, text=True, check=True
+    )
     return out.stdout.strip()
 
 

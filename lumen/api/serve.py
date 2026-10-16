@@ -18,8 +18,9 @@ def run(lan: bool = False, port: int = 8765):
     where = f"0.0.0.0:{port} (LAN {lan_ip()}:{port})" if lan else f"127.0.0.1:{port}"
     log.info("lumen API on %s · model %s · log %s", where, settings.agent_model, path)
     try:
-        uvicorn.run(create_app(lan=lan, port=port), host="0.0.0.0" if lan else "127.0.0.1", port=port,
-                    log_level="warning")
+        uvicorn.run(
+            create_app(lan=lan, port=port), host="0.0.0.0" if lan else "127.0.0.1", port=port, log_level="warning"
+        )
     finally:
         if zc:
             zc.close()

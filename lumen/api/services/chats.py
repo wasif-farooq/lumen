@@ -1,7 +1,7 @@
 """Chats for the app: the history it shows, one agent session per chat, and streaming a turn."""
 
-import logging
 import json
+import logging
 import threading
 from collections.abc import Callable, Iterator
 
@@ -63,7 +63,11 @@ class Chats:
                         if kind == "tool_call":
                             yield send("tool_call", {"name": payload[0], "args": payload[1]})
                         elif kind == "ui":
-                            if payload["type"] == "action_done" and not payload.get("dry_run") and payload.get("op") != "move":
+                            if (
+                                payload["type"] == "action_done"
+                                and not payload.get("dry_run")
+                                and payload.get("op") != "move"
+                            ):
                                 reindex = True  # new files from a copy/create: index them
                             yield send(payload["type"], {k: v for k, v in payload.items() if k != "type"})
                         elif kind == "approval":

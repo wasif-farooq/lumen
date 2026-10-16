@@ -3,7 +3,7 @@ are answered from the right part of the right file instead of the first page of 
 
 import re
 
-CHUNK = 700    # characters per passage
+CHUNK = 700  # characters per passage
 OVERLAP = 120  # repeated between neighbours so a fact split across a boundary is still found whole
 
 # A date is a year, optionally preceded by month and/or day: 2014, 05/2014, 01/08/2012, 1.8.2012
@@ -67,6 +67,7 @@ def question_terms(question: str) -> list[str]:
 
 # ---------- index ----------
 
+
 def index_file(conn, file_id: int, text: str):
     drop_file(conn, file_id)
     chunks = chunk_text(text)
@@ -97,12 +98,18 @@ def backfill(conn) -> int:
 
 # ---------- search ----------
 
-def search(conn, question: str, limit: int = 6, folder: str = "", ext: str = "", relevance_sql: str = "1.0") -> list[dict]:
+
+def search(
+    conn, question: str, limit: int = 6, folder: str = "", ext: str = "", relevance_sql: str = "1.0"
+) -> list[dict]:
     """Best passages across all documents. bm25 rewards passages matching more (and rarer) terms."""
     terms = question_terms(question)
     if not terms:
         return []
-    q = lambda t: f'"{t}"' if t.isdigit() else f'"{t}"*'
+
+    def q(t: str) -> str:  # numbers match exactly, words also as a prefix
+        return f'"{t}"' if t.isdigit() else f'"{t}"*'
+
     numbers = [t for t in terms if t.isdigit()]
     words = [t for t in terms if not t.isdigit()]
     # Strictest first. Numbers (years, amounts, IDs) are precise, so passages containing them come

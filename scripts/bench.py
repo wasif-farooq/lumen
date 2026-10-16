@@ -9,6 +9,7 @@ CPU energy (Wh) is shown only if the Intel RAPL counter is readable:
     sudo chmod o+r /sys/class/powercap/intel-rapl:0/energy_uj   # until next reboot
 """
 
+import contextlib
 import json
 import os
 import subprocess
@@ -19,15 +20,19 @@ from pathlib import Path
 
 import ollama
 
-from lumen.core.settings import settings
 from lumen.agent import Session
+from lumen.core.settings import settings
 from lumen.indexing.passes.captions import PROMPT, _render
 from lumen.indexing.passes.media import describe_frames
 
 HOME = Path.home()
-IMAGES = [Path(p).expanduser() for p in os.environ.get(
-    "LUMEN_BENCH_IMAGES", "~/Pictures/id-card.jpg:~/Pictures/receipt.jpeg:~/Documents/scanned-letter.pdf:~/Pictures/logo.png"
-).split(":")]
+IMAGES = [
+    Path(p).expanduser()
+    for p in os.environ.get(
+        "LUMEN_BENCH_IMAGES",
+        "~/Pictures/id-card.jpg:~/Pictures/receipt.jpeg:~/Documents/scanned-letter.pdf:~/Pictures/logo.png",
+    ).split(":")
+]
 VIDEO = Path(os.environ.get("LUMEN_BENCH_VIDEO", "~/Videos/clip.mp4")).expanduser()
 TURNS = [
     "find my CV",
@@ -75,12 +80,11 @@ class GpuPower(threading.Thread):
         while self.running:
             out = subprocess.run(
                 ["nvidia-smi", "--query-gpu=power.draw", "--format=csv,noheader,nounits"],
-                capture_output=True, text=True,
+                capture_output=True,
+                text=True,
             ).stdout.strip()
-            try:
+            with contextlib.suppress(ValueError):  # no reading this time
                 self.samples.append(float(out))
-            except ValueError:
-                pass
             time.sleep(0.5)
 
     def stop(self) -> float:
@@ -104,9 +108,18 @@ def measure(name, fn):
         cpu_wh = (e1 - e0) / 3600
     gpu_wh = watts * secs / 3600
     energy = f"energy CPU {cpu_wh:.3f} Wh + GPU {gpu_wh:.3f} Wh" if cpu_wh is not None else f"GPU {gpu_wh:.3f} Wh"
-    print(f"  {name:<22} {secs:6.1f}s  model CPU time {cpu:6.1f}s  GPU avg {watts:5.1f} W  {energy}  {extra or ''}", flush=True)
-    return {"secs": round(secs, 1), "model_cpu_s": round(cpu, 1), "gpu_w": round(watts, 1),
-            "gpu_wh": round(gpu_wh, 4), "cpu_wh": cpu_wh and round(cpu_wh, 4), "extra": extra}
+    print(
+        f"  {name:<22} {secs:6.1f}s  model CPU time {cpu:6.1f}s  GPU avg {watts:5.1f} W  {energy}  {extra or ''}",
+        flush=True,
+    )
+    return {
+        "secs": round(secs, 1),
+        "model_cpu_s": round(cpu, 1),
+        "gpu_w": round(watts, 1),
+        "gpu_wh": round(gpu_wh, 4),
+        "cpu_wh": cpu_wh and round(cpu_wh, 4),
+        "extra": extra,
+    }
 
 
 def main():
@@ -117,15 +130,29 @@ def main():
     for m in client.ps().models:
         client.generate(model=m.model, prompt="", keep_alive=0)
     time.sleep(3)
-    print(f"== {mode} ({model})" + ("" if cpu_energy_j() is not None else
-          "  [CPU energy not readable: see the chmod in this file's docstring]"), flush=True)
+    print(
+        f"== {mode} ({model})"
+        + ("" if cpu_energy_j() is not None else "  [CPU energy not readable: see the chmod in this file's docstring]"),
+        flush=True,
+    )
     res = {"mode": mode}
 
-    res["load"] = measure("model load", lambda: client.generate(
-        model=model, prompt="hi", keep_alive="10m", options=settings.ollama_options(num_predict=1, num_ctx=settings.num_ctx)
-    ) and None)
+    res["load"] = measure(
+        "model load",
+        lambda: (
+            client.generate(
+                model=model,
+                prompt="hi",
+                keep_alive="10m",
+                options=settings.ollama_options(num_predict=1, num_ctx=settings.num_ctx),
+            )
+            and None
+        ),
+    )
     placement = next((m for m in client.ps().models if m.model == model), None)
-    res["placement"] = f"{placement.size_vram / 2**30:.1f} GB on GPU of {placement.size / 2**30:.1f} GB" if placement else "?"
+    res["placement"] = (
+        f"{placement.size_vram / 2**30:.1f} GB on GPU of {placement.size / 2**30:.1f} GB" if placement else "?"
+    )
     print(f"  placement: {res['placement']}")
 
     def chat():
@@ -137,23 +164,36 @@ def main():
                 tools += kind == "tool_call"
             per_turn.append(round(time.time() - t0, 1))
         return f"per turn {per_turn}, {tools} tool calls"
+
     res["chat"] = measure("chat (5 turns)", chat)
 
     def gen_speed():
-        r = client.generate(model=model, prompt="Write 120 words about file search.", think=False,
-                            options=settings.ollama_options(num_predict=160, temperature=0, num_ctx=settings.num_ctx))
-        return f"{r.eval_count / (r.eval_duration / 1e9):.1f} tok/s generation, prompt {r.prompt_eval_count / (r.prompt_eval_duration / 1e9):.0f} tok/s"
+        r = client.generate(
+            model=model,
+            prompt="Write 120 words about file search.",
+            think=False,
+            options=settings.ollama_options(num_predict=160, temperature=0, num_ctx=settings.num_ctx),
+        )
+        generation = r.eval_count / (r.eval_duration / 1e9)
+        prompt = r.prompt_eval_count / (r.prompt_eval_duration / 1e9)
+        return f"{generation:.1f} tok/s generation, prompt {prompt:.0f} tok/s"
+
     res["speed"] = measure("token speed", gen_speed)
 
     def captions():
         lens = []
         for p in IMAGES:
             kind = "scanned document page" if p.suffix == ".pdf" else "image"
-            r = client.chat(model=model, think=False, keep_alive="10m",
-                            messages=[{"role": "user", "content": PROMPT.format(kind=kind), "images": [_render(str(p))]}],
-                            options=settings.ollama_options(num_predict=200, num_ctx=4096, temperature=0))
+            r = client.chat(
+                model=model,
+                think=False,
+                keep_alive="10m",
+                messages=[{"role": "user", "content": PROMPT.format(kind=kind), "images": [_render(str(p))]}],
+                options=settings.ollama_options(num_predict=200, num_ctx=4096, temperature=0),
+            )
             lens.append(len(r.message.content))
         return f"{len(IMAGES)} images, avg {sum(lens) // len(lens)} chars"
+
     res["captions"] = measure("captions (4 images)", captions)
 
     res["video"] = measure("video frames (1)", lambda: describe_frames(str(VIDEO), 12.96)[:60])

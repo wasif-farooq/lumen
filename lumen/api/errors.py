@@ -22,8 +22,10 @@ log = logging.getLogger("lumen.api")
 
 
 def body(code: str, message: str, hint: str = "", rid: str = "", detail=None) -> dict:
-    return {"detail": message if detail is None else detail,
-            "error": {"code": code, "message": message, "hint": hint, "id": rid}}
+    return {
+        "detail": message if detail is None else detail,
+        "error": {"code": code, "message": message, "hint": hint, "id": rid},
+    }
 
 
 def _rid(request: Request) -> str:
@@ -39,8 +41,11 @@ def install(app: FastAPI):
     @app.exception_handler(StarletteHTTPException)
     async def http_error(request: Request, e: StarletteHTTPException):
         message = e.detail if isinstance(e.detail, str) else json.dumps(e.detail)
-        return JSONResponse(body(errors.CODES.get(e.status_code, "error"), message, rid=_rid(request)),
-                            status_code=e.status_code, headers=getattr(e, "headers", None))
+        return JSONResponse(
+            body(errors.CODES.get(e.status_code, "error"), message, rid=_rid(request)),
+            status_code=e.status_code,
+            headers=getattr(e, "headers", None),
+        )
 
     @app.exception_handler(RequestValidationError)
     async def invalid(request: Request, e: RequestValidationError):
@@ -85,7 +90,9 @@ class RequestIds:
             status["code"] = 500
             response = JSONResponse(
                 body("internal", f"Something went wrong (id {rid}). The details are in the log.", rid=rid),
-                status_code=500, headers={"x-request-id": rid})
+                status_code=500,
+                headers={"x-request-id": rid},
+            )
             await response(scope, receive, send)
         finally:
             ms = (time.monotonic() - started) * 1000

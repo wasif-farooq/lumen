@@ -20,14 +20,25 @@ def pull(model: str) -> dict:
     cur = _pulls.get(model)
     if cur and not cur["done"]:
         return cur
-    st = _pulls[model] = {"model": model, "status": "starting", "completed": 0, "total": 0, "done": False, "error": None}
+    st = _pulls[model] = {
+        "model": model,
+        "status": "starting",
+        "completed": 0,
+        "total": 0,
+        "done": False,
+        "error": None,
+    }
 
     def run():
         import ollama
 
         try:
             for ev in ollama.Client(host=settings.providers["ollama"]["base_url"]).pull(model, stream=True):
-                st.update(status=ev.status or st["status"], completed=ev.completed or st["completed"], total=ev.total or st["total"])
+                st.update(
+                    status=ev.status or st["status"],
+                    completed=ev.completed or st["completed"],
+                    total=ev.total or st["total"],
+                )
             st["status"] = "done"
         except Exception as e:
             log.warning("download of %s failed: %s", model, e)

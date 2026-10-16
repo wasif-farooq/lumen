@@ -34,8 +34,12 @@ def forget(path: str) -> int:
     path = str(Path(path).expanduser().resolve())
     conn = connect()
     try:
-        ids = [r[0] for r in conn.execute(
-            "SELECT id FROM files WHERE path = ? OR substr(path, 1, ?) = ?", (path, len(path) + 1, path + os.sep))]
+        ids = [
+            r[0]
+            for r in conn.execute(
+                "SELECT id FROM files WHERE path = ? OR substr(path, 1, ?) = ?", (path, len(path) + 1, path + os.sep)
+            )
+        ]
         for file_id in ids:
             delete_file(conn, file_id)
         conn.commit()
@@ -54,8 +58,12 @@ def stats() -> dict:
         visual = conn.execute("SELECT COUNT(*) FROM files WHERE visual_done=1").fetchone()[0]
         segments = conn.execute("SELECT COUNT(*) FROM segments").fetchone()[0]
         return {
-            "files": total, "with_text": with_text, "captioned": captioned,
-            "media_indexed": media, "transcript_lines": segments, "visual_indexed": visual,
+            "files": total,
+            "with_text": with_text,
+            "captioned": captioned,
+            "media_indexed": media,
+            "transcript_lines": segments,
+            "visual_indexed": visual,
             "db": str(settings.db_path),
         }
     finally:

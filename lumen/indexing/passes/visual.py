@@ -38,7 +38,7 @@ def process_pending(conn, progress=None) -> dict:
             break
         power.wait_until_idle()
         batch, pictures = [], []
-        for r in todo[start:start + 8]:
+        for r in todo[start : start + 8]:
             try:
                 im = images.open_image(r["path"])
                 pictures.append(im)
@@ -49,11 +49,13 @@ def process_pending(conn, progress=None) -> dict:
                 stats["failed"] += 1
         if pictures:
             vecs = images.embed_images(pictures).astype(np.float32)
-            for r, vec in zip(batch, vecs):
+            for r, vec in zip(batch, vecs, strict=True):
                 conn.execute("UPDATE files SET embedding=?, visual_done=1 WHERE id=?", (vec.tobytes(), r["id"]))
                 stats["images"] += 1
         conn.commit()
         if progress:
-            progress(min(start + 8, len(todo)), len(todo), todo[min(start + 7, len(todo) - 1)]["path"], "image signatures")
+            progress(
+                min(start + 8, len(todo)), len(todo), todo[min(start + 7, len(todo) - 1)]["path"], "image signatures"
+            )
     stats["seconds"] = round(time.time() - started, 1)
     return stats

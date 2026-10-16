@@ -8,8 +8,8 @@ from io import BytesIO
 
 import numpy as np
 
-from ..indexing import power
 from ..core.settings import settings
+from ..indexing import power
 
 REPO = "Xenova/clip-vit-base-patch32"  # quantized ONNX build of OpenAI CLIP ViT-B/32
 FILES = ["onnx/vision_model_quantized.onnx", "onnx/text_model_quantized.onnx", "tokenizer.json"]
@@ -94,7 +94,9 @@ _cache = {"key": None}
 
 def _matrix(conn):
     """All image signatures as one matrix (cached until the set of images changes)."""
-    key = conn.execute("SELECT COUNT(*), COALESCE(MAX(id), 0), COALESCE(SUM(LENGTH(embedding)), 0) FROM files WHERE visual_done=1").fetchone()
+    key = conn.execute(
+        "SELECT COUNT(*), COALESCE(MAX(id), 0), COALESCE(SUM(LENGTH(embedding)), 0) FROM files WHERE visual_done=1"
+    ).fetchone()
     key = tuple(key)
     if _cache["key"] != key:
         rows = conn.execute(
@@ -103,7 +105,9 @@ def _matrix(conn):
         _cache.update(
             key=key,
             rows=[dict(r) for r in rows],
-            vecs=np.stack([np.frombuffer(r["embedding"], dtype=np.float32) for r in rows]) if rows else np.zeros((0, 512), np.float32),
+            vecs=np.stack([np.frombuffer(r["embedding"], dtype=np.float32) for r in rows])
+            if rows
+            else np.zeros((0, 512), np.float32),
         )
     return _cache["rows"], _cache["vecs"]
 

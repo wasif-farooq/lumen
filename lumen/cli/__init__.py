@@ -1,10 +1,10 @@
 """The `lumen` command.
 
-  python -m lumen index            build / refresh the file index
-  python -m lumen stats            show index size
-  python -m lumen search WORDS     search directly (no AI)
-  python -m lumen ask "QUESTION"   one question to the agent
-  python -m lumen chat             interactive terminal chat
+python -m lumen index            build / refresh the file index
+python -m lumen stats            show index size
+python -m lumen search WORDS     search directly (no AI)
+python -m lumen ask "QUESTION"   one question to the agent
+python -m lumen chat             interactive terminal chat
 """
 
 import argparse
@@ -41,10 +41,9 @@ def main(argv=None):
     sv.add_argument("--port", type=int, default=8765)
     sv.set_defaults(fn=serve.run)
     a = p.parse_args(argv)
-    from ..core.bootstrap import load_saved_state
-
     from ..core import errors
     from ..core import logging as lumen_logging
+    from ..core.bootstrap import load_saved_state
 
     # `serve` sets up its own log; an index run started by the app writes indexer.log
     if a.cmd != "serve":
@@ -60,6 +59,6 @@ def main(argv=None):
         sys.exit(130)
     except Exception:
         log.exception("lumen %s failed", a.cmd)
-        print(f"lumen {a.cmd} failed. The details are in {lumen_logging.log_file('cli' if a.cmd != 'index' else 'indexer')}",
-              file=sys.stderr)
+        log_file = lumen_logging.log_file("indexer" if a.cmd == "index" else "cli")
+        print(f"lumen {a.cmd} failed. The details are in {log_file}", file=sys.stderr)
         raise

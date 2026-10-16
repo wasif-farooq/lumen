@@ -38,9 +38,17 @@ class Hit:
 
     def to_dict(self) -> dict:
         return {
-            "path": self.path, "name": self.name, "ext": self.ext, "size": self.size, "mtime": self.mtime,
-            "snippet": self.snippet, "duration": self.duration, "at": self.at, "at_text": self.at_text,
-            "kind": kind_of(self.ext), "partial": self.partial,
+            "path": self.path,
+            "name": self.name,
+            "ext": self.ext,
+            "size": self.size,
+            "mtime": self.mtime,
+            "snippet": self.snippet,
+            "duration": self.duration,
+            "at": self.at,
+            "at_text": self.at_text,
+            "kind": kind_of(self.ext),
+            "partial": self.partial,
         }
 
 
@@ -91,7 +99,7 @@ def search(
             rows = []
             # Exact phrase first, then "all words", then "any word"
             partial = False
-            for match, partial in _match_exprs(terms):
+            for match, is_partial in _match_exprs(terms):
                 sql = (
                     "SELECT f.*, snippet(files_fts, 2, '[', ']', '…', 12) AS snip "
                     "FROM files_fts JOIN files f ON f.id = files_fts.rowid "
@@ -103,14 +111,23 @@ def search(
                 )
                 rows = conn.execute(sql, (match, *params, limit)).fetchall()
                 if rows:
+                    partial = is_partial
                     break
         hits = [
-            Hit(r["path"], r["name"], r["ext"], r["size"], r["mtime"], " ".join((r["snip"] or "").split()), r["duration"],
-                partial=bool(terms) and partial)
+            Hit(
+                r["path"],
+                r["name"],
+                r["ext"],
+                r["size"],
+                r["mtime"],
+                " ".join((r["snip"] or "").split()),
+                r["duration"],
+                partial=bool(terms) and partial,
+            )
             for r in rows
         ]
         if terms:
-            for hit, r in zip(hits, rows):
+            for hit, r in zip(hits, rows, strict=True):
                 if r["media_done"] == 1:
                     _locate(conn, hit, r["id"], terms)
     finally:
@@ -119,12 +136,76 @@ def search(
 
 
 STOPWORDS = {
-    "a", "an", "the", "and", "or", "of", "to", "in", "on", "at", "for", "with", "by", "from", "is", "are", "was",
-    "be", "it", "its", "this", "that", "what", "which", "who", "where", "when", "how", "does", "do", "did", "i",
-    "me", "my", "you", "your", "we", "our", "he", "she", "they", "them", "someone", "says", "say", "said", "s",
+    "a",
+    "an",
+    "the",
+    "and",
+    "or",
+    "of",
+    "to",
+    "in",
+    "on",
+    "at",
+    "for",
+    "with",
+    "by",
+    "from",
+    "is",
+    "are",
+    "was",
+    "be",
+    "it",
+    "its",
+    "this",
+    "that",
+    "what",
+    "which",
+    "who",
+    "where",
+    "when",
+    "how",
+    "does",
+    "do",
+    "did",
+    "i",
+    "me",
+    "my",
+    "you",
+    "your",
+    "we",
+    "our",
+    "he",
+    "she",
+    "they",
+    "them",
+    "someone",
+    "says",
+    "say",
+    "said",
+    "s",
     # request words: "find my CV" is a search for "cv"
-    "find", "show", "open", "search", "look", "get", "give", "list", "please", "can", "could", "file", "files",
-    "all", "any", "some", "have", "got", "about", "there", "here", "pls",
+    "find",
+    "show",
+    "open",
+    "search",
+    "look",
+    "get",
+    "give",
+    "list",
+    "please",
+    "can",
+    "could",
+    "file",
+    "files",
+    "all",
+    "any",
+    "some",
+    "have",
+    "got",
+    "about",
+    "there",
+    "here",
+    "pls",
 }
 
 
@@ -149,7 +230,10 @@ def query_terms(query: str) -> list[str]:
     """Search words, with TV episode notation unified to how files are named:
     "season 1 episode 2", "s1e2", "1x02" -> "s01e02"."""
     q = query.lower()
-    ep = lambda m: f" s{int(m.group(1)):02d}e{int(m.group(2)):02d} "
+
+    def ep(m: re.Match) -> str:
+        return f" s{int(m.group(1)):02d}e{int(m.group(2)):02d} "
+
     q = re.sub(r"\bseason\s*(\d{1,2})[\s,]*(?:episode|ep|e)\s*(\d{1,3})\b", ep, q)
     q = re.sub(r"\bs(\d{1,2})\s*e(\d{1,3})\b", ep, q)
     q = re.sub(r"\b(\d{1,2})x(\d{2,3})\b", ep, q)

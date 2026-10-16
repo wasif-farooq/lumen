@@ -38,7 +38,7 @@ def checked_path(path: str):
     try:
         p = allowed(path)
     except PermissionError as e:
-        raise errors.OutsideFolders(str(e))
+        raise errors.OutsideFolders(str(e)) from e
     if not p.exists():
         raise errors.NotFound("File not found")
     return p

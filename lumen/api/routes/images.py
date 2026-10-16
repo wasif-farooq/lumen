@@ -1,7 +1,7 @@
 """Pictures: search by what they show, similar images, and photos dropped on a chat."""
 
-import logging
 import hashlib
+import logging
 from io import BytesIO
 
 from fastapi import APIRouter, Depends, Request

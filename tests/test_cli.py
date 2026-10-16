@@ -8,8 +8,13 @@ import sys
 def lumen(*args, env_extra=None) -> subprocess.CompletedProcess:
     import os
 
-    return subprocess.run([sys.executable, "-m", "lumen", *args], capture_output=True, text=True,
-                          env={**os.environ, "COLUMNS": "200", **(env_extra or {})}, timeout=120)
+    return subprocess.run(
+        [sys.executable, "-m", "lumen", *args],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "COLUMNS": "200", **(env_extra or {})},
+        timeout=120,
+    )
 
 
 def test_help_lists_the_commands(env):

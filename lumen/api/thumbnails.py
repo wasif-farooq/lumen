@@ -19,9 +19,28 @@ def render(p: Path, w: int, t: float | None) -> bytes | None:
 
             at = t if t is not None else max(1.0, probe(str(p))["duration"] * 0.15)
             out = subprocess.run(
-                ["ffmpeg", "-v", "error", "-threads", "1", "-ss", f"{at:.2f}", "-i", str(p), "-frames:v", "1",
-                 "-vf", f"scale={w}:-2", "-f", "image2pipe", "-vcodec", "png", "-"],
-                capture_output=True, timeout=60,
+                [
+                    "ffmpeg",
+                    "-v",
+                    "error",
+                    "-threads",
+                    "1",
+                    "-ss",
+                    f"{at:.2f}",
+                    "-i",
+                    str(p),
+                    "-frames:v",
+                    "1",
+                    "-vf",
+                    f"scale={w}:-2",
+                    "-f",
+                    "image2pipe",
+                    "-vcodec",
+                    "png",
+                    "-",
+                ],
+                capture_output=True,
+                timeout=60,
             ).stdout
             return out or None
         if kind in ("pdf", "image"):

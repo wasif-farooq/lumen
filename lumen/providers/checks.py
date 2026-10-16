@@ -2,6 +2,7 @@
 must read the number on a test picture. Tried before a model is used."""
 
 import logging
+
 from . import backends, registry
 
 log = logging.getLogger(__name__)
@@ -65,9 +66,12 @@ def check(role: str, provider: str, model: str) -> dict:
             return done(False)
         need = "tools" if role == "agent" else "vision"
         if caps is not None and need not in caps:
-            add("Supports " + ("tool calling" if role == "agent" else "images"), False,
+            add(
+                "Supports " + ("tool calling" if role == "agent" else "images"),
+                False,
                 f"Ollama says {model} can't {'call tools' if role == 'agent' else 'see images'} "
-                f"(it can: {', '.join(caps) or 'nothing listed'}).")
+                f"(it can: {', '.join(caps) or 'nothing listed'}).",
+            )
             return done(False)
 
     if role == "agent":
@@ -81,7 +85,8 @@ def check(role: str, provider: str, model: str) -> dict:
         try:
             llm = backends.chat_model(provider, model, temperature=0, reasoning=False, num_ctx=4096)
             msg = llm.bind_tools([search_files]).invoke(
-                "Find my files about invoices. Use the search_files tool; do not answer in text.")
+                "Find my files about invoices. Use the search_files tool; do not answer in text."
+            )
         except Exception as e:
             log.info("check of %s (chat): %s", model, e)
             add("Answers", False, backends.why(e))
@@ -89,13 +94,24 @@ def check(role: str, provider: str, model: str) -> dict:
         add("Answers", True, "The model replied.")
         calls = getattr(msg, "tool_calls", None) or []
         ok = any(c.get("name") == "search_files" for c in calls)
-        add("Calls tools", ok, f"Asked to search: called search_files({calls[0]['args'] if calls else ''})" if ok else
-            "It answered in text instead of calling the search tool. The chat agent needs tool calling to find your files.")
+        add(
+            "Calls tools",
+            ok,
+            f"Asked to search: called search_files({calls[0]['args'] if calls else ''})"
+            if ok
+            else "It answered in text instead of calling the search tool. "
+            "The chat agent needs tool calling to find your files.",
+        )
         return done(ok)
 
     try:
-        reply = backends.describe_image("What is the number written in this picture? Reply with just the number.",
-                               _test_image(), max_tokens=40, provider=provider, model=model)
+        reply = backends.describe_image(
+            "What is the number written in this picture? Reply with just the number.",
+            _test_image(),
+            max_tokens=40,
+            provider=provider,
+            model=model,
+        )
     except ConnectionError as e:
         add("Answers", False, str(e) or "Could not connect")
         return done(False)

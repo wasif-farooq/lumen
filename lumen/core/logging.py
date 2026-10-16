@@ -51,8 +51,9 @@ def setup(component: str, console: bool = False) -> Path:
     path = log_file(component)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        handler: logging.Handler = logging.handlers.RotatingFileHandler(path, maxBytes=2_000_000, backupCount=3,
-                                                                        encoding="utf-8")
+        handler: logging.Handler = logging.handlers.RotatingFileHandler(
+            path, maxBytes=2_000_000, backupCount=3, encoding="utf-8"
+        )
     except OSError:  # a read-only home (some sandboxes): log to stderr rather than not at all
         handler = logging.StreamHandler()
     handlers = [handler] + ([logging.StreamHandler()] if console else [])

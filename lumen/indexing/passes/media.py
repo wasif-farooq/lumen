@@ -1,9 +1,9 @@
 """Make video/audio searchable: metadata (ffprobe), what it shows (frames -> vision model)
 and what is said (faster-whisper transcript with timestamps)."""
 
-import logging
 import hashlib
 import json
+import logging
 import os
 import subprocess
 import time
@@ -18,11 +18,11 @@ from .. import power
 log = logging.getLogger(__name__)
 
 
-FRAMES = 6         # frames sampled across the video, shown to the model as one 3x2 grid
+FRAMES = 6  # frames sampled across the video, shown to the model as one 3x2 grid
 FRAME_WIDTH = 320
 
 PROMPT = (
-    "These are {n} frames taken in order from one video ({length}, file name \"{name}\"). Describe the video "
+    'These are {n} frames taken in order from one video ({length}, file name "{name}"). Describe the video '
     "in 1-2 sentences for a file search index: what kind of video it is (e.g. TV episode, phone recording, "
     "screen recording, drone shot) and what happens or is shown. Do NOT guess the names of films, shows or "
     "people; only use names written on screen or in the file name. Then on a new line starting with 'Text:' "
@@ -32,15 +32,21 @@ PROMPT = (
 
 # ---------- layer 1: metadata ----------
 
+
 def probe(path: str) -> dict:
     out = subprocess.run(
         ["ffprobe", "-v", "error", "-print_format", "json", "-show_format", "-show_streams", path],
-        capture_output=True, text=True, timeout=60,
+        capture_output=True,
+        text=True,
+        timeout=60,
     )
     data = json.loads(out.stdout or "{}")
     fmt = data.get("format", {})
     streams = data.get("streams", [])
-    video = next((s for s in streams if s.get("codec_type") == "video" and s.get("disposition", {}).get("attached_pic") != 1), None)
+    video = next(
+        (s for s in streams if s.get("codec_type") == "video" and s.get("disposition", {}).get("attached_pic") != 1),
+        None,
+    )
     tags = {k.lower(): v for k, v in (fmt.get("tags") or {}).items()}
     return {
         "duration": float(fmt.get("duration") or 0),
@@ -69,6 +75,7 @@ def describe_meta(m: dict, ext: str) -> str:
 
 # ---------- layer 2: what it shows ----------
 
+
 def frame_grid(path: str, duration: float) -> tuple[bytes, int]:
     from PIL import Image
 
@@ -76,9 +83,28 @@ def frame_grid(path: str, duration: float) -> tuple[bytes, int]:
     for i in range(FRAMES):
         t = duration * (i + 0.5) / FRAMES
         png = subprocess.run(
-            ["ffmpeg", "-v", "error", "-threads", "1", "-ss", f"{t:.2f}", "-i", path, "-frames:v", "1",
-             "-vf", f"scale={FRAME_WIDTH}:-2", "-f", "image2pipe", "-vcodec", "png", "-"],
-            capture_output=True, timeout=120,
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-threads",
+                "1",
+                "-ss",
+                f"{t:.2f}",
+                "-i",
+                path,
+                "-frames:v",
+                "1",
+                "-vf",
+                f"scale={FRAME_WIDTH}:-2",
+                "-f",
+                "image2pipe",
+                "-vcodec",
+                "png",
+                "-",
+            ],
+            capture_output=True,
+            timeout=120,
         ).stdout
         if png:
             frames.append(Image.open(BytesIO(png)).convert("RGB"))
@@ -115,7 +141,9 @@ def load_whisper():
         from faster_whisper import WhisperModel
 
         _whisper = WhisperModel(
-            settings.whisper_model, device="cpu", compute_type="int8",
+            settings.whisper_model,
+            device="cpu",
+            compute_type="int8",
             cpu_threads=power.threads(),
             download_root=str(settings.data_dir / "models"),
         )
@@ -129,8 +157,25 @@ def transcribe(path: str) -> tuple[list[tuple[float, float, str]], str]:
     # Decode with ffmpeg ourselves (16 kHz mono float32): faster-whisper's own PyAV decoding
     # breaks with PyAV >= 19, and ffmpeg handles more containers anyway.
     pcm = subprocess.run(
-        ["ffmpeg", "-v", "error", "-threads", str(power.threads()), "-i", path, "-vn", "-ac", "1", "-ar", "16000", "-f", "f32le", "-"],
-        capture_output=True, timeout=3600,
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-threads",
+            str(power.threads()),
+            "-i",
+            path,
+            "-vn",
+            "-ac",
+            "1",
+            "-ar",
+            "16000",
+            "-f",
+            "f32le",
+            "-",
+        ],
+        capture_output=True,
+        timeout=3600,
     ).stdout
     audio = np.frombuffer(pcm, dtype=np.float32)
     if audio.size == 0:
@@ -149,6 +194,7 @@ def transcribe(path: str) -> tuple[list[tuple[float, float, str]], str]:
 
 
 # ---------- the indexing pass ----------
+
 
 def _fingerprint(path: str, size: int) -> str:
     """Cheap content id (size + first/last MB) so identical copies are only processed once."""
@@ -175,13 +221,18 @@ def process_pending(conn, progress=None, transcripts=True) -> dict:
         except Exception as e:
             log.exception("speech model %s could not be loaded", settings.whisper_model)
             # Leave everything pending (not failed) so the next run retries with transcripts
-            return {"error": f"speech model '{settings.whisper_model}' could not be loaded ({e}); video/audio left for next run"}
+            model = settings.whisper_model
+            return {"error": f"speech model '{model}' could not be loaded ({e}); video/audio left for next run"}
     started = time.time()
     done_by_fp: dict[str, int] = {}
 
     for n, r in enumerate(rows, 1):
         path, ext = r["path"], r["ext"]
-        say = (lambda msg: progress(n, len(rows), path, msg)) if progress else (lambda msg: None)
+
+        def say(msg: str, n: int = n, path: str = path):
+            if progress:
+                progress(n, len(rows), path, msg)
+
         allowed, why = power.heavy_allowed()
         if not allowed:
             stats["stopped"] = f"stopped: {why}; {len(rows) - n + 1} left for next run"
@@ -208,7 +259,9 @@ def process_pending(conn, progress=None, transcripts=True) -> dict:
                 stats["described"] += 1
                 say(caption)
 
-            conn.execute("DELETE FROM segments_fts WHERE rowid IN (SELECT id FROM segments WHERE file_id=?)", (r["id"],))
+            conn.execute(
+                "DELETE FROM segments_fts WHERE rowid IN (SELECT id FROM segments WHERE file_id=?)", (r["id"],)
+            )
             conn.execute("DELETE FROM segments WHERE file_id=?", (r["id"],))
             if transcripts and meta["has_audio"]:
                 t0 = time.time()
@@ -252,10 +305,14 @@ def _find_twin(conn, fp: str, file_id: int):
 def _copy_media(conn, src: int, dst: int, fp: str):
     duration, caption = conn.execute("SELECT duration, caption FROM files WHERE id=?", (src,)).fetchone()
     content = conn.execute("SELECT content FROM files_fts WHERE rowid=?", (src,)).fetchone()[0]
-    conn.execute("UPDATE files SET duration=?, caption=?, media_done=1, fingerprint=? WHERE id=?", (duration, caption, fp, dst))
+    conn.execute(
+        "UPDATE files SET duration=?, caption=?, media_done=1, fingerprint=? WHERE id=?", (duration, caption, fp, dst)
+    )
     conn.execute("UPDATE files_fts SET content=? WHERE rowid=?", (content, dst))
     conn.execute("DELETE FROM segments_fts WHERE rowid IN (SELECT id FROM segments WHERE file_id=?)", (dst,))
     conn.execute("DELETE FROM segments WHERE file_id=?", (dst,))
     for start, end, text in conn.execute("SELECT start, end, text FROM segments WHERE file_id=?", (src,)).fetchall():
-        sid = conn.execute("INSERT INTO segments (file_id, start, end, text) VALUES (?,?,?,?)", (dst, start, end, text)).lastrowid
+        sid = conn.execute(
+            "INSERT INTO segments (file_id, start, end, text) VALUES (?,?,?,?)", (dst, start, end, text)
+        ).lastrowid
         conn.execute("INSERT INTO segments_fts (rowid, text) VALUES (?,?)", (sid, text))

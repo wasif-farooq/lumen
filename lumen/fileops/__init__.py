@@ -10,4 +10,13 @@ from .actions import execute, undo
 from .journal import history
 from .plans import FileOpError, plan_copy, plan_create_file, plan_create_folder, plan_move
 
-__all__ = ["FileOpError", "execute", "history", "plan_copy", "plan_create_file", "plan_create_folder", "plan_move", "undo"]
+__all__ = [
+    "FileOpError",
+    "execute",
+    "history",
+    "plan_copy",
+    "plan_create_file",
+    "plan_create_folder",
+    "plan_move",
+    "undo",
+]

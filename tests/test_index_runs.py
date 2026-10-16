@@ -2,9 +2,8 @@
 
 import time
 
-from fastapi.testclient import TestClient
-
 from conftest import index_now, wait_until
+from fastapi.testclient import TestClient
 
 
 def progress(client) -> dict:

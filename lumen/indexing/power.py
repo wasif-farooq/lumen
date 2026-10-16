@@ -6,16 +6,17 @@ Modes (LUMEN_POWER):
   performance always run everything, with more threads
 """
 
+import contextlib
 import logging
 import os
 import shutil
 import subprocess
 import time
 from pathlib import Path
+
 from ..core.settings import settings
 
 log = logging.getLogger(__name__)
-
 
 
 SUPPLY = Path("/sys/class/power_supply")
@@ -63,10 +64,8 @@ def threads() -> int:
 
 def low_priority():
     """Lowest CPU priority and idle-only disk IO for this process and everything it starts."""
-    try:
+    with contextlib.suppress(OSError):  # not allowed here: run at normal priority
         os.nice(19 - os.nice(0))
-    except OSError:
-        pass
     if shutil.which("ionice"):
         subprocess.run(["ionice", "-c", "3", "-p", str(os.getpid())], capture_output=True)
     # Math libraries (whisper/onnx/numpy) read these when they start

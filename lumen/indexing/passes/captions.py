@@ -5,15 +5,15 @@ import time
 
 import pymupdf
 
-from ...providers import backends
 from ...core import limits
 from ...core.filetypes import IMAGE_EXTS
+from ...providers import backends
 from .. import power
 
 log = logging.getLogger(__name__)
 
 MIN_IMAGE_BYTES = 10 * 1024  # smaller images are usually icons/UI assets: not worth a caption
-MAX_SIDE = 768               # downscale before sending: faster and enough detail
+MAX_SIDE = 768  # downscale before sending: faster and enough detail
 
 PROMPT = (
     "Describe this {kind} in 1-2 sentences for a file search index: what it is "

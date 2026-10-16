@@ -59,8 +59,9 @@ class ChatStore:
 
     def log(self, chat_id: str, kind: str, data: dict):
         now = time.time()
-        self._db.execute("INSERT INTO events (chat_id, at, type, data) VALUES (?,?,?,?)",
-                         (chat_id, now, kind, json.dumps(data)))
+        self._db.execute(
+            "INSERT INTO events (chat_id, at, type, data) VALUES (?,?,?,?)", (chat_id, now, kind, json.dumps(data))
+        )
         self._db.execute("UPDATE chats SET updated=? WHERE id=?", (now, chat_id))
         self._db.commit()
 

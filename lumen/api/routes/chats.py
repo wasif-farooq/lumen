@@ -2,8 +2,8 @@
 
 from fastapi import APIRouter, Depends
 
-from ...core import errors
 from ... import fileops
+from ...core import errors
 from ..deps import auth, services
 from ..schemas import Ask, Decision, NewChat, UndoReq
 from ..services import Services
@@ -65,7 +65,7 @@ def undo_action(action_id: str, body: UndoReq, svc: Services = Depends(services)
     try:
         msg = fileops.undo(action_id)
     except (fileops.FileOpError, OSError) as e:
-        raise errors.InvalidInput(str(e))
+        raise errors.InvalidInput(str(e)) from e
     if body.chat_id:
         svc.chats.log(body.chat_id, "undone", {"action_id": action_id, "text": msg})
     return {"ok": True, "message": msg}

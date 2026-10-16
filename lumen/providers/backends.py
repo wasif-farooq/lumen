@@ -1,8 +1,8 @@
 """Talking to model providers (Adapter): the local Ollama server and OpenAI-compatible APIs
 look the same to the rest of Lumen: a chat model, describe an image, list models."""
 
-import logging
 import base64
+import logging
 
 from ..core import limits
 from ..core.settings import settings
@@ -78,15 +78,20 @@ class OpenAICompatible(Backend):
     def _client(self):
         import openai
 
-        return openai.OpenAI(base_url=self.p["base_url"], api_key=self.p.get("api_key") or "not-needed",
-                             timeout=120, max_retries=1)
+        return openai.OpenAI(
+            base_url=self.p["base_url"], api_key=self.p.get("api_key") or "not-needed", timeout=120, max_retries=1
+        )
 
     def chat_model(self, model, **ollama_options):
         from langchain_openai import ChatOpenAI
 
         return ChatOpenAI(
-            model=model, base_url=self.p["base_url"], api_key=self.p.get("api_key") or "not-needed",
-            temperature=ollama_options.get("temperature", 0), timeout=120, max_retries=1,
+            model=model,
+            base_url=self.p["base_url"],
+            api_key=self.p.get("api_key") or "not-needed",
+            temperature=ollama_options.get("temperature", 0),
+            timeout=120,
+            max_retries=1,
         )
 
     def describe_image(self, model, prompt, png, max_tokens):
@@ -96,8 +101,12 @@ class OpenAICompatible(Backend):
         try:
             resp = self._client().chat.completions.create(
                 model=model,
-                messages=[{"role": "user", "content": [{"type": "text", "text": prompt},
-                                                       {"type": "image_url", "image_url": {"url": url}}]}],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": url}}],
+                    }
+                ],
                 max_tokens=max_tokens,
                 temperature=0,
             )
@@ -110,7 +119,9 @@ class OpenAICompatible(Backend):
             models = self._client().models.list()
         except Exception as e:
             raise ConnectionError(why(e)) from e
-        return sorted(({"id": m.id, "size": None, "vision": None, "tools": None} for m in models), key=lambda m: m["id"])
+        return sorted(
+            ({"id": m.id, "size": None, "vision": None, "tools": None} for m in models), key=lambda m: m["id"]
+        )
 
 
 def backend(pid: str) -> Backend:
@@ -120,17 +131,20 @@ def backend(pid: str) -> Backend:
 
 # ---------- what the rest of Lumen calls ----------
 
+
 def chat_model(provider: str | None = None, model: str | None = None, **ollama_options):
     """The chat model for the agent job (or the given provider/model)."""
     return backend(provider or settings.agent_provider).chat_model(model or settings.agent_model, **ollama_options)
 
 
-def describe_image(prompt: str, png: bytes, max_tokens: int = 200, provider: str | None = None,
-                   model: str | None = None) -> str:
+def describe_image(
+    prompt: str, png: bytes, max_tokens: int = 200, provider: str | None = None, model: str | None = None
+) -> str:
     """One image + prompt to the images-and-video model (or the given provider/model); the reply on
     one line. Raises ConnectionError when the provider can't be reached (indexing then stops that pass)."""
     return backend(provider or settings.vision_provider).describe_image(
-        model or settings.caption_model, prompt, png, max_tokens)
+        model or settings.caption_model, prompt, png, max_tokens
+    )
 
 
 def list_models(pid: str) -> list[dict]:

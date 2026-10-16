@@ -7,8 +7,8 @@ import time
 from contextlib import nullcontext
 from pathlib import Path
 
-from ..providers import registry
 from ..core.settings import settings
+from ..providers import registry
 from ..search import passages
 from ..storage.db import connect
 from . import power
@@ -19,8 +19,13 @@ from .scan import scan
 log = logging.getLogger(__name__)
 
 
-def build_index(roots: list[Path] | None = None, progress: Progress | None = None, captions: bool | None = None,
-                media: bool | None = None, transcripts: bool | None = None) -> dict:
+def build_index(
+    roots: list[Path] | None = None,
+    progress: Progress | None = None,
+    captions: bool | None = None,
+    media: bool | None = None,
+    transcripts: bool | None = None,
+) -> dict:
     """Index the folders and return the run's summary. `captions`, `media` and `transcripts`
     override the settings for this run (None: use the settings)."""
     progress = progress or Progress()

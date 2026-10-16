@@ -55,9 +55,15 @@ CREATE VIRTUAL TABLE IF NOT EXISTS passages_fts USING fts5(
 
 # Columns added after the first release; created on old databases by connect()
 LATER_COLUMNS = {
-    "caption": "TEXT", "duration": "REAL", "media_done": "INTEGER", "fingerprint": "TEXT",
+    "caption": "TEXT",
+    "duration": "REAL",
+    "media_done": "INTEGER",
+    "fingerprint": "TEXT",
     # visual search: CLIP signature (512 float32), 64-bit dHash, file hash; visual_done NULL = pending
-    "embedding": "BLOB", "dhash": "INTEGER", "sha1": "TEXT", "visual_done": "INTEGER",
+    "embedding": "BLOB",
+    "dhash": "INTEGER",
+    "sha1": "TEXT",
+    "visual_done": "INTEGER",
 }
 
 

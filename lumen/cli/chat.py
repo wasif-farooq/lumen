@@ -36,7 +36,9 @@ def _stream_turn(events):
                 return payload
             if kind == "tool_call":
                 name, args = payload
-                console.print(f"  → {name}({json.dumps(args, ensure_ascii=False)})", style="cyan", highlight=False, markup=False)
+                console.print(
+                    f"  → {name}({json.dumps(args, ensure_ascii=False)})", style="cyan", highlight=False, markup=False
+                )
                 status.update(f"running {name}…")
             elif kind == "tool_result":
                 first = payload.splitlines()[0] if payload else ""

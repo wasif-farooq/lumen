@@ -30,7 +30,9 @@ class Pairing:
         """The new device's token and entry, or None for a wrong, expired or used-up code.
         A code works once, and only within its first few tries."""
         ok = (
-            self.code is not None and time.time() < self.expires and self.tries < MAX_TRIES
+            self.code is not None
+            and time.time() < self.expires
+            and self.tries < MAX_TRIES
             and secrets.compare_digest(code.strip(), self.code)
         )
         self.tries += 1
@@ -38,8 +40,12 @@ class Pairing:
             return None
         self.code = None
         token = secrets.token_urlsafe(32)
-        device = {"id": str(uuid.uuid4()), "name": name[:60], "paired": time.time(),
-                  "token_sha256": hashlib.sha256(token.encode()).hexdigest()}
+        device = {
+            "id": str(uuid.uuid4()),
+            "name": name[:60],
+            "paired": time.time(),
+            "token_sha256": hashlib.sha256(token.encode()).hexdigest(),
+        }
         self._save([*self.devices(), device])
         return token, device
 

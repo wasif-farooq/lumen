@@ -1,6 +1,7 @@
 """Model providers, which model does each job, model checks and Ollama downloads."""
 
 import logging
+
 from fastapi import APIRouter, Depends
 
 from ...core import errors
@@ -19,15 +20,19 @@ def _provider_call(fn, *a):
     try:
         return fn(*a)
     except KeyError as e:
-        raise errors.NotFound(e.args[0] if e.args else "Not found")
+        raise errors.NotFound(e.args[0] if e.args else "Not found") from e
     except ValueError as e:
-        raise errors.InvalidInput(str(e))
+        raise errors.InvalidInput(str(e)) from e
 
 
 @router.get("/api/providers", dependencies=[Depends(auth)])
 def list_providers():
-    return {"providers": [registry.public(p) for p in settings.providers.values()], "roles": registry.roles(),
-            "speech_models": registry.SPEECH_MODELS, "pulls": pulls.pull_status()}
+    return {
+        "providers": [registry.public(p) for p in settings.providers.values()],
+        "roles": registry.roles(),
+        "speech_models": registry.SPEECH_MODELS,
+        "pulls": pulls.pull_status(),
+    }
 
 
 @router.post("/api/providers", dependencies=[Depends(local_only)])

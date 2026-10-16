@@ -38,8 +38,8 @@ class Settings:
     # Where things are
     data_dir: Path = field(default_factory=default_data_dir)
     roots: list[Path] = field(default_factory=_default_roots)  # folders to index
-    paused_roots: list[Path] = field(default_factory=list)     # kept in the index, not re-scanned
-    excluded: list[str] = field(default_factory=list)          # files and folders kept out of the index
+    paused_roots: list[Path] = field(default_factory=list)  # kept in the index, not re-scanned
+    excluded: list[str] = field(default_factory=list)  # files and folders kept out of the index
 
     # Models (the provider of each job is chosen in the app; see lumen.providers)
     ollama_host: str = field(default_factory=lambda: os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434"))
@@ -53,9 +53,9 @@ class Settings:
 
     # What indexing does
     captions: bool = field(default_factory=lambda: _flag("CAPTIONS", True))  # describe images and scans
-    media: bool = field(default_factory=lambda: _flag("MEDIA", True))        # describe video/audio
+    media: bool = field(default_factory=lambda: _flag("MEDIA", True))  # describe video/audio
     transcripts: bool = field(default_factory=lambda: _flag("TRANSCRIPTS", True))
-    visual: bool = field(default_factory=lambda: _flag("VISUAL", True))      # image signatures (CLIP)
+    visual: bool = field(default_factory=lambda: _flag("VISUAL", True))  # image signatures (CLIP)
 
     # Power: auto (AI passes only on AC power) | saver | performance
     power_mode: str = field(default_factory=lambda: env("POWER", "auto"))

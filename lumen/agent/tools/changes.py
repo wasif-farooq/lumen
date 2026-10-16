@@ -14,8 +14,10 @@ def build(ctx) -> dict:
         decision = interrupt({"type": "approval", **{k: v for k, v in plan.items() if k != "content"}})
         if not (decision or {}).get("approved"):
             emit({"type": "action_cancelled", "summary": plan["summary"]})
-            return (f"CANCELLED by the user: {plan['summary']}. Nothing changed. Tell the user it was cancelled; "
-                    "do not ask them to approve it again.")
+            return (
+                f"CANCELLED by the user: {plan['summary']}. Nothing changed. Tell the user it was cancelled; "
+                "do not ask them to approve it again."
+            )
         try:
             done = fileops.execute(plan)
         except (fileops.FileOpError, OSError) as e:

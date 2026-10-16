@@ -2,17 +2,18 @@
 
 import re
 
+from conftest import index_now, sse, tool_call
 from langchain_core.messages import AIMessage, ToolMessage
 
-from conftest import index_now, sse, tool_call
-
-CV = "\n\n".join([
-    "Curriculum vitae of Alex Example. " + "Summary of skills and interests. " * 60,
-    "09/2012 - 05/2015 Software engineer at Acme Rockets, Springfield. Built launch planning tools.",
-    "Hobbies: sailing, chess and long walks. " * 60,
-    "06/2015 - present Team lead at Globex Corporation, Shelbyville. Leads the data platform team.",
-    "References available on request. " * 60,
-])
+CV = "\n\n".join(
+    [
+        "Curriculum vitae of Alex Example. " + "Summary of skills and interests. " * 60,
+        "09/2012 - 05/2015 Software engineer at Acme Rockets, Springfield. Built launch planning tools.",
+        "Hobbies: sailing, chess and long walks. " * 60,
+        "06/2015 - present Team lead at Globex Corporation, Shelbyville. Leads the data platform team.",
+        "References available on request. " * 60,
+    ]
+)
 assert len(CV) > 6000  # longer than read_file's largest budget, so it has to pick parts
 
 

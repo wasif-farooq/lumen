@@ -47,12 +47,16 @@ def build(ctx) -> dict:
             return "No files found. Try fewer or different words (synonyms), or remove filters."
         listing = "\n".join(h.line(i) for i, h in enumerate(hits, 1))
         if hits[0].partial:
-            listing = ("NO EXACT MATCH: no file contains all the words. These are only partial matches; "
-                       "tell the user what is missing and do not open them unless asked.\n" + listing)
+            listing = (
+                "NO EXACT MATCH: no file contains all the words. These are only partial matches; "
+                "tell the user what is missing and do not open them unless asked.\n" + listing
+            )
         if app:
             # Small models follow the latest text best: remind them here, not only in the system prompt
-            listing += ("\n\n(The user already sees these results as cards. Do not list them again: "
-                        "answer in 1-2 short sentences and name only the best match.)")
+            listing += (
+                "\n\n(The user already sees these results as cards. Do not list them again: "
+                "answer in 1-2 short sentences and name only the best match.)"
+            )
         return listing
 
     @tool
@@ -98,7 +102,11 @@ def build(ctx) -> dict:
     def _other_files(question: str, skip: Path) -> str:
         conn = db.connect()
         try:
-            found = [r for r in passages.search(conn, question, limit=4, relevance_sql=text_search.RELEVANCE_SQL) if r["path"] != str(skip)]
+            found = [
+                r
+                for r in passages.search(conn, question, limit=4, relevance_sql=text_search.RELEVANCE_SQL)
+                if r["path"] != str(skip)
+            ]
         finally:
             conn.close()
         return "\n\n".join(f"{r['name']}  path: {r['path']}\n{r['text']}" for r in found[:3]) or "(none)"
@@ -116,7 +124,9 @@ def build(ctx) -> dict:
         """
         conn = db.connect()
         try:
-            found = passages.search(conn, question, limit=6, folder=folder, ext=ext, relevance_sql=text_search.RELEVANCE_SQL)
+            found = passages.search(
+                conn, question, limit=6, folder=folder, ext=ext, relevance_sql=text_search.RELEVANCE_SQL
+            )
         finally:
             conn.close()
         if not found:
@@ -126,11 +136,23 @@ def build(ctx) -> dict:
         best = {}  # best passage per file, in rank order: shown as result cards in the app
         for r in found:
             best.setdefault(r["path"], r)
-        emit({"type": "results", "hits": [
-            text_search.Hit(r["path"], r["name"], r["ext"], r["size"], r["mtime"], " ".join(r["text"].split())[:220],
-                      r["duration"]).to_dict()
-            for r in best.values()
-        ]})
+        emit(
+            {
+                "type": "results",
+                "hits": [
+                    text_search.Hit(
+                        r["path"],
+                        r["name"],
+                        r["ext"],
+                        r["size"],
+                        r["mtime"],
+                        " ".join(r["text"].split())[:220],
+                        r["duration"],
+                    ).to_dict()
+                    for r in best.values()
+                ],
+            }
+        )
         out = []
         for r in found:
             n = files.index(r["path"]) + 1

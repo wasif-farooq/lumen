@@ -28,8 +28,19 @@ class Indexer:
         self._reset()
 
     def _reset(self):
-        self.state = {"phase": None, "done": 0, "total": 0, "path": None, "note": None, "scanned": 0,
-                      "ext": None, "kind": None, "paused": False, "summary": None, "error": None}
+        self.state = {
+            "phase": None,
+            "done": 0,
+            "total": 0,
+            "path": None,
+            "note": None,
+            "scanned": 0,
+            "ext": None,
+            "kind": None,
+            "paused": False,
+            "summary": None,
+            "error": None,
+        }
         self.recent = deque(maxlen=8)  # last files finished: {phase, path, note}
         self.phase_started = time.time()
         self.paused_since = None
@@ -54,9 +65,17 @@ class Indexer:
         # Separate process: its low priority (nice/ionice) never slows the API or chat
         self.proc = subprocess.Popen(
             [sys.executable, "-m", "lumen", "index"],
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-            env={**os.environ, "COLUMNS": "200", "LUMEN_DATA": str(settings.data_dir), "PYTHONUNBUFFERED": "1",
-                 "LUMEN_EVENTS": "1", "LUMEN_PAUSE_FILE": str(self.pause_file)},
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            env={
+                **os.environ,
+                "COLUMNS": "200",
+                "LUMEN_DATA": str(settings.data_dir),
+                "PYTHONUNBUFFERED": "1",
+                "LUMEN_EVENTS": "1",
+                "LUMEN_PAUSE_FILE": str(self.pause_file),
+            },
             start_new_session=True,  # own process group, so Stop also ends its ffmpeg children
         )
         log.info("indexing started (pid %s): %s", self.proc.pid, ", ".join(map(str, settings.roots)))
@@ -142,8 +161,9 @@ class Indexer:
             return
         last = next((ln for ln in reversed(self.lines) if ln.strip()), "")
         log.error("indexing ended with exit %s: %s", code, last)
-        self.state["error"] = (f"Indexing stopped unexpectedly{f': {last}' if last else ''}. "
-                               f"Details: {lumen_logging.log_file('indexer')}")
+        self.state["error"] = (
+            f"Indexing stopped unexpectedly{f': {last}' if last else ''}. Details: {lumen_logging.log_file('indexer')}"
+        )
 
     def progress(self) -> dict:
         st = self.state
@@ -152,6 +172,12 @@ class Indexer:
             paused = self.paused_in_phase + (time.time() - self.paused_since if self.paused_since else 0)
             active = time.time() - self.phase_started - paused
             eta = round(active / st["done"] * (st["total"] - st["done"]))
-        return {"running": self.running, "started": self.started, **st,
-                "pausing": self.running and self.pause_requested and not st["paused"],
-                "eta": eta, "recent": list(self.recent), "lines": list(self.lines)}
+        return {
+            "running": self.running,
+            "started": self.started,
+            **st,
+            "pausing": self.running and self.pause_requested and not st["paused"],
+            "eta": eta,
+            "recent": list(self.recent),
+            "lines": list(self.lines),
+        }

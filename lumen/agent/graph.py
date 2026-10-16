@@ -27,15 +27,19 @@ def build_agent(checkpointer=None, emit=None, app=False, state=None):
     if app:
         system += APP_NOTE
     if settings.open_mode != "xdg":
-        system += ("\n- TEST MODE: open_file and show_in_folder cannot open anything here. Never say a file "
-                   "was opened; say it was not opened (test mode) and give its full path.")
+        system += (
+            "\n- TEST MODE: open_file and show_in_folder cannot open anything here. Never say a file "
+            "was opened; say it was not opened (test mode) and give its full path."
+        )
 
     def agent(state: MessagesState):
         msgs = _recent_turns(state["messages"], turns=4)
         if _repeating(msgs):
             # Small models sometimes retry the same failing call forever: make it answer instead
-            nudge = SystemMessage("You already made this exact tool call. Do not call tools again; "
-                                  "answer the user with what you have, including any error.")
+            nudge = SystemMessage(
+                "You already made this exact tool call. Do not call tools again; "
+                "answer the user with what you have, including any error."
+            )
             return {"messages": [llm.invoke([SystemMessage(system), *msgs, nudge])]}
         return {"messages": [llm_with_tools.invoke([SystemMessage(system), *msgs])]}
 

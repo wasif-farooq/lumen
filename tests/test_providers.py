@@ -4,7 +4,6 @@ import json
 import stat
 
 import pytest
-
 from conftest import tool_call
 
 
@@ -40,14 +39,17 @@ def test_editing_without_a_key_keeps_the_saved_key(env, local):
     assert p3["has_key"] is False
 
 
-@pytest.mark.parametrize("url,cloud", [
-    ("https://api.openai.com/v1", True),
-    ("https://openrouter.ai/api/v1", True),
-    ("http://localhost:1234/v1", False),
-    ("http://127.0.0.1:8080/v1", False),
-    ("http://192.168.1.20:8000/v1", False),
-    ("http://10.0.0.5:8000", False),
-])
+@pytest.mark.parametrize(
+    "url,cloud",
+    [
+        ("https://api.openai.com/v1", True),
+        ("https://openrouter.ai/api/v1", True),
+        ("http://localhost:1234/v1", False),
+        ("http://127.0.0.1:8080/v1", False),
+        ("http://192.168.1.20:8000/v1", False),
+        ("http://10.0.0.5:8000", False),
+    ],
+)
 def test_cloud_detection(env, local, url, cloud):
     assert add(local, name="X", base_url=url)["cloud"] is cloud
 
@@ -112,4 +114,7 @@ def test_vision_check_reads_the_test_picture(env, local, ollama_caps, vision):
     r = local.post("/api/models/check", json={"role": "vision", "provider": "ollama", "model": "m"}).json()
     assert r["ok"] is True
     vision.reply = "a white box"
-    assert local.post("/api/models/check", json={"role": "vision", "provider": "ollama", "model": "m"}).json()["ok"] is False
+    assert (
+        local.post("/api/models/check", json={"role": "vision", "provider": "ollama", "model": "m"}).json()["ok"]
+        is False
+    )

@@ -3,9 +3,8 @@
 import subprocess
 import sys
 
-from fastapi.testclient import TestClient
-
 from conftest import add_route, raise_error, wait_until
+from fastapi.testclient import TestClient
 
 
 def test_errors_have_one_shape_with_a_request_id(local):
@@ -21,8 +20,12 @@ def test_typed_errors_carry_a_hint(env, local):
     add_route(env.app, "/test/hint", lambda: raise_error("Conflict", "Busy", "Try again in a minute"))
     r = local.get("/test/hint")
     assert r.status_code == 409
-    assert r.json()["error"] == {"code": "conflict", "message": "Busy", "hint": "Try again in a minute",
-                                 "id": r.headers["x-request-id"]}
+    assert r.json()["error"] == {
+        "code": "conflict",
+        "message": "Busy",
+        "hint": "Try again in a minute",
+        "id": r.headers["x-request-id"],
+    }
 
 
 def test_who_may_ask_errors(remote):
@@ -101,15 +104,28 @@ def test_the_cli_writes_its_own_log(env, tmp_path):
     import os
 
     folder = tmp_path / "logs"
-    r = subprocess.run([sys.executable, "-m", "lumen", "index"], capture_output=True, text=True, timeout=120,
-                       env={**os.environ, "LUMEN_LOG_DIR": str(folder)})
+    r = subprocess.run(
+        [sys.executable, "-m", "lumen", "index"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env={**os.environ, "LUMEN_LOG_DIR": str(folder)},
+    )
     assert r.returncode == 0, r.stderr
     assert "index run done" in (folder / "indexer.log").read_text()
 
 
 def test_diagnostics_for_a_bug_report(local, remote, logs):
-    local.post("/api/providers", json={"id": "cloud", "kind": "openai", "name": "Cloud",
-                                       "base_url": "https://api.example.com/v1", "api_key": "sk-secret-123"})
+    local.post(
+        "/api/providers",
+        json={
+            "id": "cloud",
+            "kind": "openai",
+            "name": "Cloud",
+            "base_url": "https://api.example.com/v1",
+            "api_key": "sk-secret-123",
+        },
+    )
     local.get("/api/status")
     r = local.get("/api/diagnostics")
     d = r.json()

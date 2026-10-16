@@ -4,8 +4,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends
 
-from ...core import errors
-from ...core import preferences
+from ...core import errors, preferences
 from ...core.settings import settings
 from ...storage import catalog
 from ..deps import auth, local_only, services

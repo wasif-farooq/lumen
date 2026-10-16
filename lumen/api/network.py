@@ -20,8 +20,12 @@ def advertise(port: int):
 
     host = socket.gethostname()
     info = ServiceInfo(
-        "_lumen._tcp.local.", f"{host}._lumen._tcp.local.",
-        addresses=[socket.inet_aton(lan_ip())], port=port, properties={"host": host}, server=f"{host}.local.",
+        "_lumen._tcp.local.",
+        f"{host}._lumen._tcp.local.",
+        addresses=[socket.inet_aton(lan_ip())],
+        port=port,
+        properties={"host": host},
+        server=f"{host}.local.",
     )
     zc = Zeroconf()
     zc.register_service(info)
