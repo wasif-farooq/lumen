@@ -8,11 +8,11 @@ import subprocess
 import time
 from io import BytesIO
 
-from . import power
-from .core import limits
-from .core.filetypes import MEDIA_EXTS, VIDEO_EXTS
-from .core.formatting import fmt_time
-from .core.settings import settings
+from ...core import limits
+from ...core.filetypes import MEDIA_EXTS, VIDEO_EXTS
+from ...core.formatting import fmt_time
+from ...core.settings import settings
+from .. import power
 
 
 FRAMES = 6         # frames sampled across the video, shown to the model as one 3x2 grid
@@ -93,7 +93,7 @@ def frame_grid(path: str, duration: float) -> tuple[bytes, int]:
 
 
 def describe_frames(path: str, duration: float) -> str:
-    from . import providers
+    from ... import providers
 
     grid, n = frame_grid(path, duration)
     name = os.path.basename(path)

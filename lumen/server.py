@@ -24,12 +24,14 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import power, providers
+from . import providers
 from .tools import _allowed, _launch
 from .core import preferences
 from .core.filetypes import MEDIA_EXTS, RUNNABLE_EXTS, kind_of
 from .core.formatting import fmt_time
 from .core.settings import settings
+from .indexing import power
+from .indexing.progress import EVENT_PREFIX, parse_event
 from .search import images
 from .search import text as text_search
 from .storage import catalog, db
@@ -391,7 +393,7 @@ def _render_thumb(p: Path, w: int, t: float | None) -> bytes | None:
     kind = kind_of(ext)
     try:
         if kind == "video":
-            from .media import probe
+            from .indexing.passes.media import probe
 
             at = t if t is not None else max(1.0, probe(str(p))["duration"] * 0.15)
             out = subprocess.run(
@@ -612,10 +614,12 @@ class Indexer:
     def _pump(self):
         for line in self.proc.stdout:
             line = line.rstrip()
-            if line.startswith("@@"):
+            if line.startswith(EVENT_PREFIX):  # progress for the app; a garbled one is dropped
+                event = parse_event(line)
                 try:
-                    self._event(json.loads(line[2:]))
-                except (ValueError, KeyError, TypeError):
+                    if event:
+                        self._event(event)
+                except (KeyError, TypeError):
                     pass
             elif line and "onnxruntime" not in line and "HF Hub" not in line:
                 self.lines.append(line)

@@ -21,8 +21,8 @@ import ollama
 
 from lumen.core.settings import settings
 from lumen.agent import Session
-from lumen.caption import PROMPT, _render
-from lumen.media import describe_frames
+from lumen.indexing.passes.captions import PROMPT, _render
+from lumen.indexing.passes.media import describe_frames
 
 HOME = Path.home()
 IMAGES = [Path(p).expanduser() for p in os.environ.get(

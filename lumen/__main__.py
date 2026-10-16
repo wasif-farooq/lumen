@@ -16,21 +16,26 @@ from rich.console import Console
 from rich.markdown import Markdown
 
 from .core.settings import settings
-from . import index
+from .indexing.progress import EventStream, Progress, Several
 from .search import text as text_search
 from .storage import catalog
 
 console = Console()
 
 
-def _event(**kw):
-    """Machine-readable progress for the app (it reads '@@{json}' lines); off on the plain CLI."""
-    if os.environ.get("LUMEN_EVENTS"):
-        print("@@" + json.dumps(kw, default=str), flush=True)
+class ConsoleProgress(Progress):
+    """An index run as people read it in the terminal."""
+
+    def scanned(self, count):
+        console.print(f"  scanned {count:,} …", style="dim")
+
+    def item(self, done, total, path, note):
+        console.print(f"  [{done}/{total}] {path}\n      {note[:160]}", style="dim", highlight=False, markup=False)
 
 
 def cmd_index(a):
-    from . import power
+    from .indexing import power
+    from .indexing.pipeline import build_index
 
     if a.power:
         settings.update(power_mode=a.power)  # this run only, not saved
@@ -43,24 +48,15 @@ def cmd_index(a):
         style="dim",
     )
 
-    def on_caption(n, total, path, caption):
-        _event(item={"done": n, "total": total, "path": path, "note": caption[:300]})
-        console.print(f"  [{n}/{total}] {path}\n      {caption[:160]}", style="dim", highlight=False, markup=False)
-
-    def on_scan(s):
-        _event(scanned=s["scanned"])
-        console.print(f"  scanned {s['scanned']:,} …", style="dim")
-
-    power.on_pause = lambda paused: _event(paused=paused)
-    s = index.build_index(
-        progress=on_scan,
-        on_phase=lambda name: _event(phase=name),
+    # Started by the server: also report machine-readable progress for the app
+    progress = Several(ConsoleProgress(), EventStream()) if os.environ.get("LUMEN_EVENTS") else ConsoleProgress()
+    s = build_index(
+        progress=progress,
         captions=False if a.no_captions else None,
-        on_caption=on_caption,
         media=False if a.no_media else None,
         transcripts=False if a.no_transcripts else None,
     )
-    _event(summary=s)
+    progress.summary(s)
     console.print(
         f"Files done in {s['seconds']}s: scanned {s['scanned']:,}, added {s['added']:,}, "
         f"updated {s['updated']:,}, removed {s['removed']:,}, text extracted from {s['with_text']:,}"

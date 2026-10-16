@@ -36,7 +36,9 @@ from langchain_core.messages import AIMessage  # noqa: E402
 from langchain_core.outputs import ChatGeneration, ChatResult  # noqa: E402
 from pydantic import Field  # noqa: E402
 
-from lumen import index, media, providers, server, tools  # noqa: E402
+from lumen import providers, server, tools  # noqa: E402
+from lumen.indexing.passes import media  # noqa: E402
+from lumen.indexing.pipeline import build_index  # noqa: E402
 from lumen.search import images as visual  # noqa: E402
 from lumen.core.settings import settings  # noqa: E402
 
@@ -134,7 +136,7 @@ def env(tmp_path, monkeypatch) -> Env:
 
 def index_now() -> dict:
     """Build the index in this process (the API runs it as a subprocess)."""
-    return index.build_index()
+    return build_index()
 
 
 @pytest.fixture
@@ -313,7 +315,7 @@ def agent_tool_names() -> list[str]:
     return [t.name for t in tools.make_tools(lambda e: None)]
 
 
-OPEN_INDEX_CODE = "from lumen import index; index.connect().close()"  # run in a separate process
+OPEN_INDEX_CODE = "from lumen.storage import db; db.connect().close()"  # run in a separate process
 
 
 def setting_in_fresh_python(env_vars: dict, name: str, after_start: bool = False) -> str:

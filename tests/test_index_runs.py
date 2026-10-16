@@ -4,7 +4,7 @@ import time
 
 from fastapi.testclient import TestClient
 
-from conftest import app, wait_until
+from conftest import app, index_now, wait_until
 
 
 def progress(client) -> dict:
@@ -76,3 +76,14 @@ def test_status_shows_indexing_and_paused(env, local):
     local.post("/api/index/pause")
     assert wait_until(lambda: local.get("/api/status").json()["index_paused"])
     assert local.get("/api/status").json()["indexing"] is True
+
+
+def test_pause_also_holds_a_rescan_where_nothing_changed(env, local):
+    many_files(env)
+    index_now()  # everything already indexed: the next run only re-checks
+    local.post("/api/index")
+    local.post("/api/index/pause")
+    assert wait_until(lambda: progress(local)["paused"])
+    local.post("/api/index/resume")
+    assert wait_until(lambda: not progress(local)["running"])
+    assert progress(local)["summary"]["added"] == 0

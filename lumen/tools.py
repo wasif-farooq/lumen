@@ -11,7 +11,7 @@ from langgraph.types import interrupt
 
 from .search import images, passages
 from .search import text as text_search
-from .extract import extract_text
+from .indexing.extract import extract_text
 from .core.filetypes import IMAGE_EXTS, MEDIA_EXTS, RUNNABLE_EXTS
 from .core.formatting import fmt_time
 from .core.settings import settings

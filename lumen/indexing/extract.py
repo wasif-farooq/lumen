@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from .core import limits
-from .core.filetypes import TEXT_EXTS
+from ..core import limits
+from ..core.filetypes import TEXT_EXTS
 
 
 def extract_text(path: Path, ext: str, size: int) -> str:
