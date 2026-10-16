@@ -120,7 +120,7 @@ class GpuModel:
             log.debug("ollama ps: %s", e)
         return self
 
-    def __exit__(self, *exc):
+    def __exit__(self, *_exc):
         if self.was_loaded:
             return
         try:

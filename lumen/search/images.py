@@ -100,7 +100,7 @@ def _matrix(conn):
     key = tuple(key)
     if _cache["key"] != key:
         rows = conn.execute(
-            "SELECT id, path, name, ext, size, mtime, embedding, dhash, sha1 FROM files WHERE visual_done=1 ORDER BY id"
+            "SELECT id, path, name, ext, size, mtime, embedding FROM files WHERE visual_done=1 ORDER BY id"
         ).fetchall()
         _cache.update(
             key=key,

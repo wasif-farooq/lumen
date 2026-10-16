@@ -120,3 +120,44 @@ def test_a_new_index_can_be_opened_by_several_processes_at_once(env):
     procs = [subprocess.Popen([sys.executable, "-c", OPEN_INDEX_CODE], stderr=subprocess.PIPE) for _ in range(12)]
     errors = [p.communicate()[1].decode() for p in procs if p.wait() != 0]
     assert errors == []
+
+
+def test_an_index_from_0_1_loses_the_unused_image_hash_columns_and_keeps_its_files(env):
+    import sqlite3
+    import subprocess
+    import sys
+
+    from conftest import index_file
+
+    old = sqlite3.connect(index_file())
+    old.executescript(
+        "CREATE TABLE files (id INTEGER PRIMARY KEY, path TEXT UNIQUE NOT NULL, name TEXT NOT NULL, ext TEXT NOT NULL,"
+        " size INTEGER NOT NULL, mtime REAL NOT NULL, has_text INTEGER NOT NULL DEFAULT 0, caption TEXT,"
+        " duration REAL, media_done INTEGER, fingerprint TEXT, embedding BLOB, dhash INTEGER, sha1 TEXT,"
+        " visual_done INTEGER);"
+        "INSERT INTO files (path, name, ext, size, mtime, caption, dhash, sha1)"
+        " VALUES ('/x/a.png', 'a.png', 'png', 1, 0, 'a red bicycle', 7, 'ab');"
+    )
+    old.commit()
+    old.close()
+
+    # Opened the way the app and the indexer open it (in another process, as they do)
+    subprocess.run([sys.executable, "-c", OPEN_INDEX_CODE], check=True)
+
+    conn = sqlite3.connect(index_file())
+    columns = {r[1] for r in conn.execute("PRAGMA table_info(files)")}
+    assert "dhash" not in columns and "sha1" not in columns
+    assert {"embedding", "visual_done", "caption"} <= columns
+    assert conn.execute("PRAGMA user_version").fetchone()[0] >= 1
+    assert conn.execute("SELECT name, caption FROM files").fetchall() == [("a.png", "a red bicycle")]
+
+
+def test_a_new_index_starts_at_the_latest_schema_version(env):
+    import sqlite3
+
+    from conftest import index_file
+
+    index_now()
+    conn = sqlite3.connect(index_file())
+    assert conn.execute("PRAGMA user_version").fetchone()[0] >= 1
+    assert "dhash" not in {r[1] for r in conn.execute("PRAGMA table_info(files)")}

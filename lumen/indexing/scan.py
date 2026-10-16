@@ -87,7 +87,7 @@ def _add_or_update(conn, path: Path, st, prev, stats: dict):
         conn.execute(
             "UPDATE files SET path=?, name=?, ext=?, size=?, mtime=?, has_text=?, "
             "caption=NULL, duration=NULL, media_done=NULL, fingerprint=NULL, "
-            "embedding=NULL, dhash=NULL, sha1=NULL, visual_done=NULL WHERE id=?",
+            "embedding=NULL, visual_done=NULL WHERE id=?",
             (*row, prev[0]),
         )
         drop_derived(conn, prev[0])

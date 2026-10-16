@@ -384,3 +384,8 @@ def raise_error(kind: str, message: str, hint: str = ""):
     from lumen.core import errors
 
     raise getattr(errors, kind)(message, hint)
+
+
+def index_file() -> Path:
+    """Where the search index is kept (one SQLite file in the data folder)."""
+    return settings.db_path
