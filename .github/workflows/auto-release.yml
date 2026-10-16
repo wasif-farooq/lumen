@@ -1,6 +1,6 @@
 # Releases every push to main that passes Checks: tags it with the next version and builds the
 # packages (release.yml). The version goes up from the last v* tag: patch by default, or minor /
-# major when a commit message says [minor] / [major]. No release for [skip release], or when
+# major when a commit title says [minor] / [major]. No release for [skip release], or when
 # only documentation and CI files changed. The rules are in .github/scripts/next-version.sh.
 name: Auto release
 
