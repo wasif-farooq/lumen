@@ -8,7 +8,7 @@ import zipfile
 from collections.abc import Iterator
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
-from typing import IO
+from typing import IO, Literal
 from xml.etree.ElementTree import Element, iterparse
 
 from ..core import limits
@@ -45,9 +45,11 @@ class _Capped:
         return data
 
 
-def _parse(zf: zipfile.ZipFile, name: str, events: tuple[str, ...] = ("end",)) -> Iterator[tuple[str, Element]]:
+def _parse(
+    zf: zipfile.ZipFile, name: str, events: tuple[Literal["start", "end"], ...] = ("end",)
+) -> Iterator[tuple[str, Element]]:
     with zf.open(name) as raw:
-        yield from iterparse(_Capped(raw), events=events)  # type: ignore[arg-type]
+        yield from iterparse(_Capped(raw), events=events)
 
 
 def _texts(el: Element) -> str:

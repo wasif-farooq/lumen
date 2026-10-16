@@ -52,39 +52,49 @@ class Chats:
     def log(self, chat_id: str, kind: str, data: dict) -> None:
         self.store.log(chat_id, kind, data)
 
+    def turn(
+        self, chat_id: str, run: Callable[..., Iterator], on_new_files: Callable[[], None]
+    ) -> Iterator[tuple[str, dict]]:
+        """Run one turn of the agent and yield its events as (type, data), recorded in the chat
+        history as they happen. `run(session)` starts the turn: a message, or an approval answer.
+        `on_new_files` runs when the turn created or copied files (they need indexing).
+        Used by typed chat (as server-sent events) and by voice chat."""
+        reindex = False
+        with self.model_lock:
+            try:
+                for kind, payload in run(self.session(chat_id)):
+                    if kind == "tool_call":
+                        event = ("tool_call", {"name": payload[0], "args": payload[1]})
+                    elif kind == "ui":
+                        if (
+                            payload["type"] == "action_done"
+                            and not payload.get("dry_run")
+                            and payload.get("op") != "move"
+                        ):
+                            reindex = True  # new files from a copy/create: index them
+                        event = (payload["type"], {k: v for k, v in payload.items() if k != "type"})
+                    elif kind == "approval":
+                        event = ("approval", {k: v for k, v in payload.items() if k != "type"})
+                    elif kind == "answer":
+                        event = ("answer", {"text": payload or ""})
+                    else:
+                        continue
+                    self.log(chat_id, *event)
+                    yield event
+            except Exception as e:  # loop limit, Ollama down, …: tell the UI instead of dropping the turn
+                log.exception("chat %s: the turn failed", chat_id)
+                self.log(chat_id, "error", {"text": friendly(e)})
+                yield "error", {"text": friendly(e)}
+        if reindex:
+            on_new_files()
+
     def stream(self, chat_id: str, run: Callable[..., Iterator], on_new_files: Callable[[], None]) -> StreamingResponse:
-        """Stream the agent's events as server-sent events and record them in the chat history.
-        `on_new_files` runs when the turn created or copied files (they need indexing)."""
+        """A turn as server-sent events (one JSON object per `data:` line), for typed chat."""
 
         def events() -> Iterator[str]:
-            def send(kind: str, data: dict) -> str:
-                self.log(chat_id, kind, data)
-                return f"data: {json.dumps({'type': kind, **data})}\n\n"
-
-            reindex = False
             yield f"data: {json.dumps({'type': 'started'})}\n\n"
-            with self.model_lock:
-                try:
-                    for kind, payload in run(self.session(chat_id)):
-                        if kind == "tool_call":
-                            yield send("tool_call", {"name": payload[0], "args": payload[1]})
-                        elif kind == "ui":
-                            if (
-                                payload["type"] == "action_done"
-                                and not payload.get("dry_run")
-                                and payload.get("op") != "move"
-                            ):
-                                reindex = True  # new files from a copy/create: index them
-                            yield send(payload["type"], {k: v for k, v in payload.items() if k != "type"})
-                        elif kind == "approval":
-                            yield send("approval", {k: v for k, v in payload.items() if k != "type"})
-                        elif kind == "answer":
-                            yield send("answer", {"text": payload or ""})
-                except Exception as e:  # loop limit, Ollama down, …: tell the UI instead of dropping the stream
-                    log.exception("chat %s: the turn failed", chat_id)
-                    yield send("error", {"text": friendly(e)})
-            if reindex:
-                on_new_files()
+            for kind, data in self.turn(chat_id, run, on_new_files):
+                yield f"data: {json.dumps({'type': kind, **data})}\n\n"
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
         return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})

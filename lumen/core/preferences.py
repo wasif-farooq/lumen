@@ -8,6 +8,8 @@ from .settings import settings
 
 # Saved by name; the type turns JSON values back into settings values
 FIELDS = {
+    "voice_stt_model": str,
+    "voice_tts_voice": str,
     "gitignore": bool,
     "power_mode": str,
     "cpu_only": bool,

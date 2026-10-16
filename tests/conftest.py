@@ -44,6 +44,7 @@ from lumen.indexing.passes import speech as speech_pass  # noqa: E402
 from lumen.indexing.pipeline import build_index  # noqa: E402
 from lumen.providers import backends, checks, registry  # noqa: E402
 from lumen.search import images as visual  # noqa: E402
+from lumen.voice.vad import SileroStream as REAL_VOICE_DETECTOR  # noqa: E402
 
 OLD = time.mktime((2019, 6, 1, 12, 0, 0, 0, 0, -1))
 
@@ -429,3 +430,70 @@ def text_limits(env, monkeypatch):
             monkeypatch.setattr(limits, name, value)
 
     return use
+
+
+class FakeVoice:
+    """Speech models for voice tests: 'hears' the scripted sentences in order, and speaks a
+    sentence as a little silent audio (slowly with `seconds_per_sentence`, to test interrupting)."""
+
+    sample_rate = 22050
+
+    def __init__(self):
+        self.heard: list[str] = []
+        self.spoken: list[str] = []
+        self.seconds_per_sentence = 0.0
+        self.transcriptions = 0
+
+    def transcribe(self, audio) -> str:
+        self.transcriptions += 1
+        return self.heard.pop(0) if self.heard else ""
+
+    def speak(self, text: str):
+        time.sleep(self.seconds_per_sentence)
+        self.spoken.append(text)
+        yield b"\x00\x00" * 2205  # 0.1 s
+        yield b"\x00\x00" * 2205
+
+
+class LoudnessDetector:
+    """Stands in for the voice detector in tests: the test tone is speech, room noise isn't.
+    (The real one, Silero, would rightly say a tone isn't a voice.)"""
+
+    def __call__(self, window) -> float:
+        import numpy as np
+
+        return 1.0 if float(np.sqrt(np.mean(window**2))) > 0.05 else 0.0
+
+
+@pytest.fixture
+def voice(env, monkeypatch) -> FakeVoice:
+    from lumen.voice import stt, tts, vad
+
+    fake = FakeVoice()
+    monkeypatch.setattr(stt, "load", lambda: None)
+    monkeypatch.setattr(stt, "transcribe", fake.transcribe)
+    monkeypatch.setattr(tts, "load", lambda: fake)
+    monkeypatch.setattr(vad, "SileroStream", LoudnessDetector)
+    return fake
+
+
+@pytest.fixture
+def real_voice_detector(voice, monkeypatch):
+    """The fake speech models, but the real voice detector (Silero ships inside faster-whisper:
+    nothing to download)."""
+    from lumen.voice import vad
+
+    monkeypatch.setattr(vad, "SileroStream", REAL_VOICE_DETECTOR)
+    return voice
+
+
+def pcm(seconds: float, loud: bool) -> bytes:
+    """Microphone audio (PCM16, 16 kHz): a voice-like tone, or quiet room noise."""
+    import numpy as np
+
+    n = int(16000 * seconds)
+    if loud:
+        wave = np.sin(2 * np.pi * 220 * np.arange(n) / 16000) * 0.3
+    else:
+        wave = np.random.default_rng(n).normal(0, 0.003, n)
+    return (wave * 32767).astype("<i2").tobytes()

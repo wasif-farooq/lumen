@@ -11,7 +11,7 @@ from fastapi import FastAPI
 
 from ..core.limits import DEFAULT_PORT
 from . import errors
-from .routes import chats, files, images, indexing, pairing, providers, status
+from .routes import chats, files, images, indexing, pairing, providers, status, voice
 from .services import Services
 
 
@@ -28,6 +28,6 @@ def create_app(lan: bool = False, port: int = DEFAULT_PORT) -> FastAPI:
     app = FastAPI(title="Lumen", lifespan=lifespan)
     app.state.services = svc
     errors.install(app)
-    for module in (chats, images, files, status, indexing, providers, pairing):
+    for module in (chats, images, files, status, indexing, providers, pairing, voice):
         app.include_router(module.router)
     return app

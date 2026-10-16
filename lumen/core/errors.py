@@ -55,6 +55,12 @@ class Conflict(LumenError):
     status, code = 409, "conflict"
 
 
+class VoiceUnavailable(LumenError):
+    """Voice chat can't run here: its speech engine or voice is missing."""
+
+    status, code = 503, "voice_unavailable"
+
+
 class ProviderUnavailable(LumenError):
     """A model provider can't be reached or refused the request."""
 
