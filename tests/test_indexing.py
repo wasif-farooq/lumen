@@ -2,6 +2,7 @@
 
 import os
 import time
+from pathlib import Path
 
 from conftest import OPEN_INDEX_CODE, index_now
 
@@ -161,3 +162,44 @@ def test_a_new_index_starts_at_the_latest_schema_version(env):
     conn = sqlite3.connect(index_file())
     assert conn.execute("PRAGMA user_version").fetchone()[0] >= 1
     assert "dhash" not in {r[1] for r in conn.execute("PRAGMA table_info(files)")}
+
+
+def _project(env):
+    """A code project inside an indexed folder, with .gitignore files at two levels."""
+    project = env.documents / "project"
+    (project / "build-out").mkdir(parents=True)
+    (project / "docs").mkdir()
+    (project / ".gitignore").write_text("*.log\n!keep.log\nbuild-out/\n/secret.txt\n*.tmp\n")
+    (project / "docs" / ".gitignore").write_text("draft*.md\n!important.tmp\n")
+    for name in ["notes.txt", "app.log", "keep.log", "secret.txt", "build-out/report.txt",
+                 "docs/secret.txt", "docs/draft-1.md", "docs/plan.md", "cache.tmp", "docs/important.tmp"]:  # fmt: skip
+        (project / name).write_text(f"contents of {name}\n")
+    return project
+
+
+def _indexed_in(local, project) -> set[str]:
+    hits = local.get("/api/search", params={"folder": str(project), "limit": 100}).json()
+    return {str(Path(h["path"]).relative_to(project)) for h in hits}
+
+
+KEPT = {"notes.txt", "keep.log", "docs/secret.txt", "docs/plan.md", "docs/important.tmp"}
+GIT_IGNORED = {"app.log", "secret.txt", "build-out/report.txt", "docs/draft-1.md", "cache.tmp"}
+
+
+def test_files_a_gitignore_leaves_out_are_not_indexed(env, local):
+    project = _project(env)
+    index_now()
+    # *.log but !keep.log; a folder pattern; /secret.txt only at the top; docs/ adds its own rule
+    # and brings back one *.tmp the top .gitignore leaves out (the deeper file wins, as in git)
+    assert _indexed_in(local, project) == KEPT
+    assert local.get("/api/settings").json()["gitignore"] is True
+
+
+def test_the_gitignore_setting_can_be_turned_off_and_on(env, local):
+    project = _project(env)
+    assert local.put("/api/settings", json={"gitignore": False}).status_code == 200
+    index_now()
+    assert _indexed_in(local, project) == KEPT | GIT_IGNORED
+    local.put("/api/settings", json={"gitignore": True})
+    index_now()
+    assert _indexed_in(local, project) == KEPT  # what is now ignored drops out of the index

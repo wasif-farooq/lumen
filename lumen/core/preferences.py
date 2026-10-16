@@ -8,6 +8,7 @@ from .settings import settings
 
 # Saved by name; the type turns JSON values back into settings values
 FIELDS = {
+    "gitignore": bool,
     "power_mode": str,
     "cpu_only": bool,
     "threads": int,

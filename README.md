@@ -12,6 +12,7 @@ It runs on your laptop with a local model (Ollama) by default. Nothing leaves th
 - **Finds pictures by what they show**, and finds images that look like a given photo (drop one on the chat).
 - **Answers questions about a file** by reading it, and opens files or shows them in their folder.
 - **Organises files with your approval**: create folders and files, copy, move and rename. Every change asks first and can be undone. It cannot delete anything.
+- **Skips what code projects ignore**: build output, caches and logs listed in their `.gitignore` files (a switch in Settings → Sync).
 - **Indexes quietly**: low CPU and disk priority, and in Auto mode the AI work only runs while plugged in. Pause, resume or stop a run any time, and see live progress.
 - **Desktop and phone app** (Flutter): the Linux desktop app, plus a phone app that pairs with your laptop over the local network.
 
@@ -113,6 +114,7 @@ Most settings live in the app (Settings → General / Models / Sync). Environmen
 | `LUMEN_CPU_ONLY` | `0` | `1` keeps every model on the CPU |
 | `LUMEN_THREADS` | `4` | CPU threads for indexing |
 | `LUMEN_CAPTIONS`, `LUMEN_MEDIA`, `LUMEN_TRANSCRIPTS`, `LUMEN_VISUAL` | `1` | Turn indexing passes off with `0` |
+| `LUMEN_GITIGNORE` | `1` | `0` also indexes what `.gitignore` files in code projects leave out |
 | `LUMEN_WRITE` | `1` | `0` reports file changes instead of doing them |
 | `OLLAMA_HOST` | `http://127.0.0.1:11434` | Ollama server |
 | `LUMEN_LOG_LEVEL` | `INFO` | `DEBUG` for more detail in the logs |

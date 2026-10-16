@@ -3,13 +3,14 @@ import 'package:flutter/material.dart';
 import '../../core/format.dart';
 import '../../shared/theme.dart';
 import '../../shared/widgets/cards.dart';
+import '../settings/setting_controls.dart';
 import 'sync_actions.dart';
 
 /// Files and folders kept out of the index, and the button to add one.
 class ExclusionsCard extends StatelessWidget {
-  const ExclusionsCard({super.key, required this.excluded, required this.running, required this.actions});
+  const ExclusionsCard({super.key, required this.excluded, required this.gitignore, required this.running, required this.actions});
   final List<String> excluded;
-  final bool running;
+  final bool gitignore, running;
   final SyncActions actions;
 
   @override
@@ -33,6 +34,13 @@ class ExclusionsCard extends StatelessWidget {
           ),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          SettingToggle(
+            title: 'Respect .gitignore files',
+            subtitle: 'In code projects, skip what git ignores: build output, caches, logs.',
+            value: gitignore,
+            onChanged: running ? null : actions.setGitignore,
+          ),
+          const SizedBox(height: 8),
           if (excluded.isEmpty)
             const Text('Nothing excluded. Files and folders you exclude are removed from search and skipped by later runs.',
                 style: TextStyle(fontSize: 13, color: C.muted)),

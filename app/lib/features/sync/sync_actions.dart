@@ -121,6 +121,15 @@ class SyncActions {
     );
   }
 
+  Future<void> setGitignore(bool on) => runGuarded(
+        context,
+        () => c.setGitignore(on: on),
+        failure: 'Could not save',
+        success: (_) => on
+            ? 'Leaving out what .gitignore files ignore. Re-indexing now…'
+            : 'Indexing files that .gitignore files ignore too. Re-indexing now…',
+      );
+
   Future<void> include(String path) => runGuarded(
         context,
         () => c.include(path),

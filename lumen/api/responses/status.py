@@ -64,6 +64,7 @@ class SettingsOut(Out):
     media: bool
     transcripts: bool
     visual: bool
+    gitignore: bool  # skip what .gitignore files in the indexed folders leave out
 
 
 class Diagnostics(Out):
