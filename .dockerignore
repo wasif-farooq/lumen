@@ -1,0 +1,7 @@
+.venv
+data
+.env
+**/__pycache__
+app/build
+app/dist
+app/.dart_tool

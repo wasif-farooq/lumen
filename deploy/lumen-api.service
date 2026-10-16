@@ -1,0 +1,17 @@
+# The API the Lumen app talks to. Install:
+#   cp deploy/lumen-api.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now lumen-api
+[Unit]
+Description=Lumen API for the desktop and phone app
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/work/personal/os-operator
+Environment=LUMEN_DATA=%h/work/personal/os-operator/data
+# --lan lets paired phones connect; remove it to keep the API on this laptop only
+ExecStart=%h/.local/bin/uv run --env-file .env lumen serve --lan
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

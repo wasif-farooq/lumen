@@ -1,0 +1,42 @@
+# --- Secrets and personal data: never commit ---
+.env
+.env.*
+!.env.example
+data/
+# API keys and model choices, if a data folder is pointed at the repo root
+/providers.json
+*.db
+*.db-wal
+*.db-shm
+
+# --- Python ---
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+/build/
+/dist/
+
+# --- Model downloads and caches ---
+hf/
+models/
+*.gguf
+*.onnx
+
+# --- Flutter app (more in app/.gitignore) ---
+app/build/
+app/dist/
+app/test/failures/
+
+# --- Tools and editors ---
+.gitnexus
+graphify-out/
+.idea/
+.vscode/
+*.iml
+*.swp
+.DS_Store
+*.log

@@ -1,0 +1,17 @@
+# Low-power background indexing. Install: see deploy/README in chat / `systemctl --user` commands.
+[Unit]
+Description=Lumen file indexer (low priority)
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/work/personal/os-operator
+Environment=LUMEN_DATA=%h/work/personal/os-operator/data
+Environment=LUMEN_POWER=auto
+ExecStart=%h/.local/bin/uv run --env-file .env lumen index
+# The kernel enforces these on top of the app's own nice/ionice:
+Nice=19
+IOSchedulingClass=idle
+CPUSchedulingPolicy=idle
+CPUWeight=idle
+CPUQuota=200%
+MemoryHigh=3G

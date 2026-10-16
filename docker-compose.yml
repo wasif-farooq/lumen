@@ -1,0 +1,44 @@
+# Test harness: the app runs in a container with your folders mounted READ-ONLY.
+# Ollama and Langfuse run on the host; host networking lets the container reach them.
+services:
+  app:
+    build: .
+    network_mode: host
+    user: "${UID:-1000}:${GID:-1000}"
+    stdin_open: true
+    tty: true
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      LUMEN_ROOTS: ${HOME}/Documents:${HOME}/Downloads:${HOME}/Desktop
+      LUMEN_DATA: /data
+      LUMEN_OPEN_MODE: print   # no desktop in the container: report instead of opening
+      LUMEN_WRITE: "0"         # folders are read-only here: file changes are reported, not done
+      OLLAMA_HOST: http://127.0.0.1:11434
+      HF_HOME: /data/hf   # whisper model download cache
+      HF_HUB_DISABLE_XET: "1"   # plain HTTPS download; the Xet CDN failed here
+    volumes:
+      # same paths as on the host, so results show real paths
+      - ${HOME}/Documents:${HOME}/Documents:ro
+      - ${HOME}/Downloads:${HOME}/Downloads:ro
+      - ${HOME}/Desktop:${HOME}/Desktop:ro
+      # mounted so they can be added from the app; not indexed until you add them
+      - ${HOME}/Pictures:${HOME}/Pictures:ro
+      - ${HOME}/Videos:${HOME}/Videos:ro
+      - ./data:/data
+
+  # Build the Linux desktop app in a container:
+  #   docker compose --profile build run --rm app-build
+  app-build:
+    profiles: ["build"]
+    build:
+      context: .
+      dockerfile: docker/flutter-linux.Dockerfile
+    volumes:
+      - ./app:/src:ro
+      - ./app/dist/linux:/out
+      - flutter-pub-cache:/home/ubuntu/.pub-cache
+
+volumes:
+  flutter-pub-cache:
