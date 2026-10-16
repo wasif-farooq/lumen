@@ -71,13 +71,38 @@ def connect() -> sqlite3.Connection:
     config.DATA_DIR.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(config.DB_PATH)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
+    _use_wal(conn)
     conn.executescript(SCHEMA)
-    have = {r["name"] for r in conn.execute("PRAGMA table_info(files)")}
-    for col, typ in LATER_COLUMNS.items():
-        if col not in have:
-            conn.execute(f"ALTER TABLE files ADD COLUMN {col} {typ}")
+    if _missing_columns(conn):
+        # The server and the indexer can both open a new database at once: hold the write
+        # lock while re-checking, so only one of them adds each column.
+        conn.execute("BEGIN IMMEDIATE")
+        for col in _missing_columns(conn):
+            conn.execute(f"ALTER TABLE files ADD COLUMN {col} {LATER_COLUMNS[col]}")
+        conn.commit()
     return conn
+
+
+def _use_wal(conn, attempts: int = 100):
+    """Switch a new database to WAL (it is stored in the file, so later opens skip this).
+
+    The switch needs the database to itself and SQLite does not wait for that, so when the server
+    and the indexer open a brand-new index together, retry briefly instead of failing."""
+    for _ in range(attempts):
+        try:
+            if conn.execute("PRAGMA journal_mode").fetchone()[0] != "wal":
+                conn.execute("PRAGMA journal_mode=WAL")
+            return
+        except sqlite3.OperationalError as e:
+            if "locked" not in str(e):
+                raise
+            time.sleep(0.05)
+    raise sqlite3.OperationalError("database is locked (could not switch the index to WAL mode)")
+
+
+def _missing_columns(conn) -> list[str]:
+    have = {r["name"] for r in conn.execute("PRAGMA table_info(files)")}
+    return [col for col in LATER_COLUMNS if col not in have]
 
 
 def _drop_derived(conn, file_id: int):
@@ -295,8 +320,6 @@ class Hit:
         return out
 
     def to_dict(self) -> dict:
-        from .media import MEDIA_EXTS
-
         return {
             "path": self.path, "name": self.name, "ext": self.ext, "size": self.size, "mtime": self.mtime,
             "snippet": self.snippet, "duration": self.duration, "at": self.at, "at_text": self.at_text,
