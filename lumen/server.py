@@ -24,7 +24,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import providers
+from .providers import backends, checks, pulls, registry
 from .tools import _allowed, _launch
 from .core import preferences
 from .core.filetypes import MEDIA_EXTS, RUNNABLE_EXTS, kind_of
@@ -482,10 +482,10 @@ def status(_=Depends(auth)):
         "power": {"on_ac": power.on_ac(), "battery": power.battery_percent(), "mode": settings.power_mode,
                   "ai_allowed": allowed, "reason": why, "threads": power.threads()},
         "models": {"agent": settings.agent_model, "vision": settings.caption_model, "speech": f"whisper-{settings.whisper_model}",
-                   "agent_provider": providers.get(settings.agent_provider)["name"],
-                   "vision_provider": providers.get(settings.vision_provider)["name"],
-                   "agent_cloud": providers.is_cloud(providers.get(settings.agent_provider)),
-                   "vision_cloud": providers.is_cloud(providers.get(settings.vision_provider)),
+                   "agent_provider": registry.get(settings.agent_provider)["name"],
+                   "vision_provider": registry.get(settings.vision_provider)["name"],
+                   "agent_cloud": registry.is_cloud(registry.get(settings.agent_provider)),
+                   "vision_cloud": registry.is_cloud(registry.get(settings.vision_provider)),
                    "cpu_only": settings.cpu_only, "ollama_ok": ollama_ok, "loaded": loaded},
         "langfuse": bool(os.environ.get("LANGFUSE_PUBLIC_KEY")),
         "langfuse_host": os.environ.get("LANGFUSE_HOST", ""),
@@ -760,36 +760,36 @@ def _provider_call(fn, *a):
 
 @app.get("/api/providers")
 def list_providers(_=Depends(auth)):
-    return {"providers": [providers.public(p) for p in settings.providers.values()], "roles": providers.roles(),
-            "speech_models": providers.SPEECH_MODELS, "pulls": providers.pull_status()}
+    return {"providers": [registry.public(p) for p in settings.providers.values()], "roles": registry.roles(),
+            "speech_models": registry.SPEECH_MODELS, "pulls": pulls.pull_status()}
 
 
 @app.post("/api/providers")
 def save_provider(body: dict, _=Depends(local_only)):
-    p = _provider_call(providers.upsert, body)
+    p = _provider_call(registry.upsert, body)
     _sessions.clear()  # chats pick up a changed address or key
-    return providers.public(p)
+    return registry.public(p)
 
 
 @app.delete("/api/providers/{pid}")
 def delete_provider(pid: str, _=Depends(local_only)):
-    _provider_call(providers.remove, pid)
+    _provider_call(registry.remove, pid)
     return {"deleted": pid}
 
 
 @app.get("/api/providers/{pid}/models")
 def provider_models(pid: str, _=Depends(local_only)):
     try:
-        return _provider_call(providers.list_models, pid)
+        return _provider_call(backends.list_models, pid)
     except ConnectionError as e:
         raise HTTPException(502, str(e) or "Could not connect")
     except Exception as e:
-        raise HTTPException(502, providers._why(e))
+        raise HTTPException(502, backends.why(e))
 
 
 @app.post("/api/providers/{pid}/test")
 def test_provider(pid: str, _=Depends(local_only)):
-    return _provider_call(providers.test, pid)
+    return _provider_call(backends.test, pid)
 
 
 class PullReq(BaseModel):
@@ -798,7 +798,7 @@ class PullReq(BaseModel):
 
 @app.post("/api/providers/ollama/pull")
 def pull_model(body: PullReq, _=Depends(local_only)):
-    return _provider_call(providers.pull, body.model)
+    return _provider_call(pulls.pull, body.model)
 
 
 class RoleReq(BaseModel):
@@ -816,12 +816,12 @@ class CheckReq(BaseModel):
 @app.post("/api/models/check")
 def check_model(body: CheckReq, _=Depends(local_only)):
     """Try a model on a job before using it (can take a minute while a local model loads)."""
-    return _provider_call(providers.check, body.role, body.provider, body.model)
+    return _provider_call(checks.check, body.role, body.provider, body.model)
 
 
 @app.put("/api/roles")
 def set_role(body: RoleReq, _=Depends(local_only)):
-    out = _provider_call(providers.set_role, body.role, body.provider, body.model)
+    out = _provider_call(registry.set_role, body.role, body.provider, body.model)
     if body.role == "agent":
         _sessions.clear()  # new chats use the new model
     return out

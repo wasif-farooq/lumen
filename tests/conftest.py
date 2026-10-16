@@ -36,7 +36,9 @@ from langchain_core.messages import AIMessage  # noqa: E402
 from langchain_core.outputs import ChatGeneration, ChatResult  # noqa: E402
 from pydantic import Field  # noqa: E402
 
-from lumen import providers, server, tools  # noqa: E402
+from lumen import server, tools  # noqa: E402
+
+from lumen.providers import backends, checks, registry  # noqa: E402
 from lumen.indexing.passes import media  # noqa: E402
 from lumen.indexing.pipeline import build_index  # noqa: E402
 from lumen.search import images as visual  # noqa: E402
@@ -120,7 +122,7 @@ def env(tmp_path, monkeypatch) -> Env:
         "caption_model": "qwen3.5:2b", "whisper_model": "small",
     }.items():
         monkeypatch.setattr(settings, name, value)
-    monkeypatch.setattr(settings, "providers", providers._defaults())
+    monkeypatch.setattr(settings, "providers", registry.defaults())
 
     # Server state lives in module globals today: start each test from scratch
     monkeypatch.setattr(server, "_sessions", {})
@@ -195,7 +197,7 @@ class ScriptedModel(BaseChatModel):
 def model(env, monkeypatch) -> ScriptedModel:
     """Replace the chat model with a scripted one: set `model.script` before chatting."""
     fake = ScriptedModel()
-    monkeypatch.setattr(providers, "chat_model", lambda *a, **k: fake)
+    monkeypatch.setattr(backends, "chat_model", lambda *a, **k: fake)
     return fake
 
 
@@ -243,7 +245,7 @@ class FakeVision:
 @pytest.fixture
 def vision(env, monkeypatch) -> FakeVision:
     fake = FakeVision()
-    monkeypatch.setattr(providers, "describe_image", fake)
+    monkeypatch.setattr(backends, "describe_image", fake)
     return fake
 
 
@@ -260,7 +262,7 @@ def speech(env, monkeypatch):
 def ollama_caps(env, monkeypatch):
     """What Ollama reports a model can do: call with a list, e.g. ollama_caps(["completion", "tools"])."""
     def use(caps):
-        monkeypatch.setattr(providers, "_ollama_caps", lambda p, m: caps)
+        monkeypatch.setattr(checks, "ollama_caps", lambda p, m: caps)
     return use
 
 

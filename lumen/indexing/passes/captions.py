@@ -4,7 +4,7 @@ import time
 
 import pymupdf
 
-from ... import providers
+from ...providers import backends
 from ...core import limits
 from ...core.filetypes import IMAGE_EXTS
 from .. import power
@@ -76,7 +76,7 @@ def caption_pending(conn, progress=None) -> dict:
         power.wait_until_idle()
         kind = "scanned document page" if r["ext"] == "pdf" else "image"
         try:
-            caption = providers.describe_image(PROMPT.format(kind=kind), _render(r["path"]))
+            caption = backends.describe_image(PROMPT.format(kind=kind), _render(r["path"]))
             stats["captioned"] += 1
         except ConnectionError:
             raise  # Ollama isn't running: stop, and leave the rest for the next run

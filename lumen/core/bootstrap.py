@@ -2,8 +2,8 @@
 
 
 def load_saved_state():
-    from .. import providers
+    from ..providers import registry
     from . import preferences
 
-    providers.load()  # model choices and providers (may override the default models)
+    registry.load()  # model choices and providers (may override the default models)
     preferences.load()  # folders, power, what gets indexed

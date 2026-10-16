@@ -93,11 +93,11 @@ def frame_grid(path: str, duration: float) -> tuple[bytes, int]:
 
 
 def describe_frames(path: str, duration: float) -> str:
-    from ... import providers
+    from ...providers import backends
 
     grid, n = frame_grid(path, duration)
     name = os.path.basename(path)
-    return providers.describe_image(PROMPT.format(n=n, length=fmt_time(duration), name=name), grid)
+    return backends.describe_image(PROMPT.format(n=n, length=fmt_time(duration), name=name), grid)
 
 
 # ---------- layer 3: what is said ----------

@@ -10,7 +10,7 @@ from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.types import Command
 
-from . import providers
+from .providers import backends
 from .tools import make_tools
 from .core.settings import settings
 
@@ -56,7 +56,7 @@ APP_NOTE = """
 
 
 def build_agent(checkpointer=None, emit=None, app=False, state=None):
-    llm = providers.chat_model(
+    llm = backends.chat_model(
         num_ctx=settings.num_ctx,
         temperature=0,
         reasoning=False,  # no "thinking" before tool calls: much faster on a small GPU

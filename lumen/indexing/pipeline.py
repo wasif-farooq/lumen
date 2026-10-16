@@ -6,7 +6,7 @@ import time
 from contextlib import nullcontext
 from pathlib import Path
 
-from .. import providers
+from ..providers import registry
 from ..core.settings import settings
 from ..search import passages
 from ..storage.db import connect
@@ -47,7 +47,7 @@ def _ai_passes(conn, passes: list[IndexPass], progress: Progress, stats: dict):
         stats["heavy_skipped"] = why
         return
     # Unloading the model after indexing only means something for a local Ollama model
-    with power.GpuModel(settings.caption_model) if providers.is_ollama("vision") else nullcontext():
+    with power.GpuModel(settings.caption_model) if registry.is_ollama("vision") else nullcontext():
         for p in passes:
             if p.wanted():
                 progress.phase(p.name)
