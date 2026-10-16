@@ -12,7 +12,6 @@ import json
 import os
 import secrets
 import socket
-import sqlite3
 import subprocess
 import sys
 import threading
@@ -30,6 +29,8 @@ from .media import MEDIA_EXTS, fmt_time
 from .tools import RUNNABLE_EXTS, _allowed, _launch
 from .core import preferences
 from .core.settings import settings
+from .storage import catalog, db
+from .storage.chats import NEW_TITLE, ChatStore, checkpointer
 
 app = FastAPI(title="Lumen")
 _model_lock = threading.Lock()  # one local model: answer one chat at a time
@@ -79,51 +80,35 @@ def local_only(request: Request):
 
 # ---------- chats (history for the UI; the model's memory is in the checkpointer) ----------
 
-def _db() -> sqlite3.Connection:
-    settings.data_dir.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(settings.data_dir / "chats.db", check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    conn.executescript("""
-        CREATE TABLE IF NOT EXISTS chats (id TEXT PRIMARY KEY, title TEXT, created REAL, updated REAL);
-        CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, chat_id TEXT, at REAL, type TEXT, data TEXT);
-        CREATE INDEX IF NOT EXISTS events_chat ON events(chat_id);
-    """)
-    return conn
+_chats: ChatStore | None = None
+_memory = None
 
 
-_chat_db = None
-_saver = None
+def chat_store() -> ChatStore:
+    global _chats
+    if _chats is None:
+        _chats = ChatStore(settings.data_dir / "chats.db")
+    return _chats
 
 
-def chat_db():
-    global _chat_db
-    if _chat_db is None:
-        _chat_db = _db()
-    return _chat_db
-
-
-def saver():
-    global _saver
-    if _saver is None:
-        from langgraph.checkpoint.sqlite import SqliteSaver
-
-        _saver = SqliteSaver(sqlite3.connect(settings.data_dir / "memory.db", check_same_thread=False))
-    return _saver
+def memory():
+    """The agent's memory of each conversation."""
+    global _memory
+    if _memory is None:
+        _memory = checkpointer(settings.data_dir / "memory.db")
+    return _memory
 
 
 def session_for(chat_id: str):
     from .agent import Session
 
     if chat_id not in _sessions:
-        _sessions[chat_id] = Session(thread_id=chat_id, checkpointer=saver(), app=True)
+        _sessions[chat_id] = Session(thread_id=chat_id, checkpointer=memory(), app=True)
     return _sessions[chat_id]
 
 
 def _log(chat_id: str, kind: str, data: dict):
-    db = chat_db()
-    db.execute("INSERT INTO events (chat_id, at, type, data) VALUES (?,?,?,?)", (chat_id, time.time(), kind, json.dumps(data)))
-    db.execute("UPDATE chats SET updated=? WHERE id=?", (time.time(), chat_id))
-    db.commit()
+    chat_store().log(chat_id, kind, data)
 
 
 class NewChat(BaseModel):
@@ -136,46 +121,35 @@ class Ask(BaseModel):
 
 @app.get("/api/chats")
 def list_chats(_=Depends(auth)):
-    rows = chat_db().execute("SELECT * FROM chats ORDER BY updated DESC LIMIT 200").fetchall()
-    return [dict(r) for r in rows]
+    return chat_store().recent()
 
 
 @app.post("/api/chats")
 def create_chat(body: NewChat, _=Depends(auth)):
-    chat = {"id": str(uuid.uuid4()), "title": body.title or "New chat", "created": time.time(), "updated": time.time()}
-    chat_db().execute("INSERT INTO chats VALUES (:id, :title, :created, :updated)", chat)
-    chat_db().commit()
-    return chat
+    return chat_store().create(body.title)
 
 
 @app.delete("/api/chats/{chat_id}")
 def delete_chat(chat_id: str, _=Depends(auth)):
-    chat_db().execute("DELETE FROM events WHERE chat_id=?", (chat_id,))
-    chat_db().execute("DELETE FROM chats WHERE id=?", (chat_id,))
-    chat_db().commit()
+    chat_store().delete(chat_id)
     _sessions.pop(chat_id, None)
     return {"ok": True}
 
 
 @app.get("/api/chats/{chat_id}/events")
 def chat_events(chat_id: str, _=Depends(auth)):
-    rows = chat_db().execute("SELECT type, data, at FROM events WHERE chat_id=? ORDER BY id", (chat_id,)).fetchall()
-    return [{"type": r["type"], "at": r["at"], **json.loads(r["data"])} for r in rows]
+    return chat_store().events(chat_id)
 
 
 @app.post("/api/chats/{chat_id}/messages")
 def send_message(chat_id: str, body: Ask, _=Depends(auth)):
     """Stream the agent's work as server-sent events (one JSON object per `data:` line)."""
-    row = chat_db().execute("SELECT title FROM chats WHERE id=?", (chat_id,)).fetchone()
-    if not row:
+    if chat_store().title(chat_id) is None:
         raise HTTPException(404, "No such chat")
     text = body.text.strip()
     if not text:
         raise HTTPException(400, "Empty message")
-    if row["title"] == "New chat":
-        title = text if len(text) <= 48 else text[:45].rsplit(" ", 1)[0] + "…"
-        chat_db().execute("UPDATE chats SET title=? WHERE id=?", (title, chat_id))
-        chat_db().commit()
+    chat_store().name_from_first_message(chat_id, text)
     _log(chat_id, "user", {"text": text})
 
     return _stream(chat_id, lambda s: s.stream(text))
@@ -271,17 +245,16 @@ def _similar_and_log(chat_id: str, source, label: dict) -> list[dict]:
     from . import visual
     from .tools import image_hits
 
-    if not chat_db().execute("SELECT 1 FROM chats WHERE id=?", (chat_id,)).fetchone():
+    title = chat_store().title(chat_id)
+    if title is None:
         raise HTTPException(404, "No such chat")
-    conn = index.connect()
+    conn = db.connect()
     try:
         hits = image_hits(conn, visual.similar_to(conn, source))
     finally:
         conn.close()
-    title = chat_db().execute("SELECT title FROM chats WHERE id=?", (chat_id,)).fetchone()["title"]
-    if title == "New chat":
-        chat_db().execute("UPDATE chats SET title=? WHERE id=?", (label["text"][:48], chat_id))
-        chat_db().commit()
+    if title == NEW_TITLE:
+        chat_store().set_title(chat_id, label["text"][:48])
     _log(chat_id, "user", label)
     _log(chat_id, "results", {"hits": hits})
     # so "open the second one" in the next message refers to these
@@ -293,7 +266,7 @@ def _similar_and_log(chat_id: str, source, label: dict) -> list[dict]:
 def image_search(q: str, folder: str = "", limit: int = 12, _=Depends(auth)):
     from .tools import hybrid_image_search
 
-    conn = index.connect()
+    conn = db.connect()
     try:
         return hybrid_image_search(conn, q, limit=min(max(limit, 1), 50), folder=folder)
     finally:
@@ -306,7 +279,7 @@ def image_similar(path: str, _=Depends(auth)):
     from .tools import image_hits
 
     p = _checked(path)
-    conn = index.connect()
+    conn = db.connect()
     try:
         return image_hits(conn, visual.similar_to(conn, str(p)))
     finally:
@@ -373,7 +346,7 @@ def file_info(path: str, at: float | None = None, _=Depends(auth)):
     p = _checked(path)
     st = p.stat()
     ext = p.suffix.lower().lstrip(".")
-    conn = index.connect()
+    conn = db.connect()
     try:
         row = conn.execute("SELECT id, caption, duration, has_text FROM files WHERE path=?", (str(p),)).fetchone()
         segments = []
@@ -386,7 +359,7 @@ def file_info(path: str, at: float | None = None, _=Depends(auth)):
             segments = [{"start": s["start"], "end": s["end"], "text": s["text"], "time": fmt_time(s["start"])} for s in segs]
     finally:
         conn.close()
-    text = index.indexed_text(str(p))
+    text = catalog.indexed_text(str(p))
     return {
         "path": str(p), "name": p.name, "ext": ext, "kind": index.kind_of(ext), "size": st.st_size, "mtime": st.st_mtime,
         "folder": str(p.parent), "indexed": row is not None, "searchable": bool(row and (row["has_text"] or row["caption"])),
@@ -499,11 +472,11 @@ def status(_=Depends(auth)):
     allowed, why = power.heavy_allowed()
     return {
         "host": socket.gethostname(),
-        "index": index.stats(),
+        "index": catalog.stats(),
         "last_index": last,
         "indexing": _indexer.running,
         "index_paused": _indexer.state["paused"],
-        "folders": [{"path": str(r), "files": _count_under(r), "paused": r in settings.paused_roots} for r in settings.roots],
+        "folders": [{"path": str(r), "files": catalog.count_under(r), "paused": r in settings.paused_roots} for r in settings.roots],
         "power": {"on_ac": power.on_ac(), "battery": power.battery_percent(), "mode": settings.power_mode,
                   "ai_allowed": allowed, "reason": why, "threads": power.threads()},
         "models": {"agent": settings.agent_model, "vision": settings.caption_model, "speech": f"whisper-{settings.whisper_model}",
@@ -517,14 +490,6 @@ def status(_=Depends(auth)):
         "lan": _state["lan"],
         "open_mode": settings.open_mode,
     }
-
-
-def _count_under(root: Path) -> int:
-    conn = index.connect()
-    try:
-        return conn.execute("SELECT COUNT(*) FROM files WHERE path LIKE ?", (str(root) + os.sep + "%",)).fetchone()[0]
-    finally:
-        conn.close()
 
 
 @app.get("/api/settings")
@@ -732,7 +697,7 @@ def exclude_path(body: PathBody, _=Depends(local_only)):
         raise HTTPException(400, f"Not inside an indexed folder: {p}")
     if p in settings.roots:
         raise HTTPException(400, "To drop a whole folder, remove it from the folder list instead")
-    removed = index.forget(str(p))
+    removed = catalog.forget(str(p))
     preferences.update({"excluded": [*settings.excluded, str(p)]})
     return {"removed": removed, "excluded": settings.excluded}
 
@@ -772,7 +737,7 @@ def clear_folder(body: PathBody, _=Depends(local_only)):
     """Drop everything indexed under a folder. The files themselves are not touched."""
     _not_while_indexing()
     r = _root(body.path)
-    removed = index.forget(str(r))
+    removed = catalog.forget(str(r))
     if body.reindex and r not in settings.paused_roots:
         _indexer.start()
     return {"removed": removed}

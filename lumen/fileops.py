@@ -212,9 +212,9 @@ def _reindex_moved(src: Path, dst: Path):
     """Keep search results (and their descriptions, transcripts, passages) for moved files."""
     import re
 
-    from . import index
+    from .storage import db
 
-    conn = index.connect()
+    conn = db.connect()
     try:
         rows = conn.execute(
             "SELECT id, path FROM files WHERE path = ? OR path LIKE ?", (str(src), str(src) + os.sep + "%")

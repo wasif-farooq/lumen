@@ -17,6 +17,7 @@ from rich.markdown import Markdown
 
 from . import index
 from .core.settings import settings
+from .storage import catalog
 
 console = Console()
 
@@ -89,7 +90,7 @@ def cmd_index(a):
 
 
 def cmd_stats(_):
-    console.print(index.stats())
+    console.print(catalog.stats())
 
 
 def cmd_search(a):
@@ -142,7 +143,7 @@ def _session():
     from .agent import Session
 
     s = Session()
-    stats = index.stats()
+    stats = catalog.stats()
     console.print(
         f"[bold]lumen[/bold] · model {settings.agent_model} · {stats['files']:,} files indexed · "
         f"{'CPU only' if settings.cpu_only else 'GPU'} · open mode: {settings.open_mode} · "

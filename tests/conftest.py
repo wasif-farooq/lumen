@@ -121,8 +121,8 @@ def env(tmp_path, monkeypatch) -> Env:
 
     # Server state lives in module globals today: start each test from scratch
     monkeypatch.setattr(server, "_sessions", {})
-    monkeypatch.setattr(server, "_chat_db", None)
-    monkeypatch.setattr(server, "_saver", None)
+    monkeypatch.setattr(server, "_chats", None)
+    monkeypatch.setattr(server, "_memory", None)
     monkeypatch.setattr(server, "_state", {"lan": False})
     monkeypatch.setattr(server, "_pair", {"code": None, "expires": 0.0, "tries": 0})
     monkeypatch.setattr(server, "_indexer", server.Indexer())

@@ -13,6 +13,7 @@ from . import index, passages
 from .extract import extract_text
 from .media import MEDIA_EXTS, fmt_time
 from .core.settings import settings
+from .storage import catalog, db
 
 # Opening these could execute them, so we reveal them in the file manager instead
 RUNNABLE_EXTS = {
@@ -164,7 +165,7 @@ def make_tools(emit=None, app=False, state=None):
         text = extract_text(path, ext, path.stat().st_size)
         what = ""
         if not text.strip():
-            text = index.indexed_text(str(path))
+            text = catalog.indexed_text(str(path))
             if not text:
                 return f"{path.name}: no readable text (binary, scanned or unsupported file)."
             what = " (metadata, description and transcript)" if ext in MEDIA_EXTS else " (AI description)"
@@ -189,7 +190,7 @@ def make_tools(emit=None, app=False, state=None):
         )
 
     def _other_files(question: str, skip: Path) -> str:
-        conn = index.connect()
+        conn = db.connect()
         try:
             found = [r for r in passages.search(conn, question, limit=4, relevance_sql=index._RELEVANCE_SQL) if r["path"] != str(skip)]
         finally:
@@ -207,7 +208,7 @@ def make_tools(emit=None, app=False, state=None):
             folder: only files whose path contains this text (optional).
             ext: only these file types, comma separated (optional).
         """
-        conn = index.connect()
+        conn = db.connect()
         try:
             found = passages.search(conn, question, limit=6, folder=folder, ext=ext, relevance_sql=index._RELEVANCE_SQL)
         finally:
@@ -289,7 +290,7 @@ def make_tools(emit=None, app=False, state=None):
             description: what is in the picture.
             folder: only images whose path contains this text (optional).
         """
-        conn = index.connect()
+        conn = db.connect()
         try:
             hits = hybrid_image_search(conn, description, folder=folder)
         finally:
@@ -310,7 +311,7 @@ def make_tools(emit=None, app=False, state=None):
         from . import visual
 
         path = resolve(target)
-        conn = index.connect()
+        conn = db.connect()
         try:
             hits = image_hits(conn, visual.similar_to(conn, str(path)))
         finally:

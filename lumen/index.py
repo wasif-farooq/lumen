@@ -3,7 +3,6 @@
 import json
 import os
 import re
-import sqlite3
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -12,133 +11,8 @@ from pathlib import Path
 from .extract import extract_text
 from .core import limits
 from .core.settings import settings
-
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS files (
-    id INTEGER PRIMARY KEY,
-    path TEXT UNIQUE NOT NULL,
-    name TEXT NOT NULL,
-    ext TEXT NOT NULL,
-    size INTEGER NOT NULL,
-    mtime REAL NOT NULL,
-    has_text INTEGER NOT NULL DEFAULT 0,
-    caption TEXT,  -- AI description of images/scans/videos; NULL = not done yet
-    duration REAL,  -- seconds, for video/audio
-    media_done INTEGER,  -- video/audio pass: NULL = pending, 1 = done, 0 = failed
-    fingerprint TEXT  -- content id for media, to reuse work on identical copies
-);
-CREATE INDEX IF NOT EXISTS files_mtime ON files(mtime);
-CREATE INDEX IF NOT EXISTS files_ext ON files(ext);
--- rowid = files.id
-CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING fts5(
-    name, path, content,
-    tokenize = 'unicode61 remove_diacritics 2'
-);
--- timestamped transcript lines of video/audio, so a hit can jump to the right moment
-CREATE TABLE IF NOT EXISTS segments (
-    id INTEGER PRIMARY KEY,
-    file_id INTEGER NOT NULL,
-    start REAL NOT NULL,
-    end REAL NOT NULL,
-    text TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS segments_file ON segments(file_id);
-CREATE VIRTUAL TABLE IF NOT EXISTS segments_fts USING fts5(
-    text, tokenize = 'unicode61 remove_diacritics 2'
-);
--- ~700-character passages of documents, for answering questions from the right part of a file
-CREATE TABLE IF NOT EXISTS passages (
-    id INTEGER PRIMARY KEY,
-    file_id INTEGER NOT NULL,
-    idx INTEGER NOT NULL,
-    total INTEGER NOT NULL,
-    text TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS passages_file ON passages(file_id);
-CREATE VIRTUAL TABLE IF NOT EXISTS passages_fts USING fts5(
-    text, extra, tokenize = 'unicode61 remove_diacritics 2'
-);
-"""
-
-# Columns added after the first release; created on old databases by connect()
-LATER_COLUMNS = {
-    "caption": "TEXT", "duration": "REAL", "media_done": "INTEGER", "fingerprint": "TEXT",
-    # visual search: CLIP signature (512 float32), 64-bit dHash, file hash; visual_done NULL = pending
-    "embedding": "BLOB", "dhash": "INTEGER", "sha1": "TEXT", "visual_done": "INTEGER",
-}
-
-
-def connect() -> sqlite3.Connection:
-    settings.data_dir.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(settings.db_path)
-    conn.row_factory = sqlite3.Row
-    _use_wal(conn)
-    conn.executescript(SCHEMA)
-    if _missing_columns(conn):
-        # The server and the indexer can both open a new database at once: hold the write
-        # lock while re-checking, so only one of them adds each column.
-        conn.execute("BEGIN IMMEDIATE")
-        for col in _missing_columns(conn):
-            conn.execute(f"ALTER TABLE files ADD COLUMN {col} {LATER_COLUMNS[col]}")
-        conn.commit()
-    return conn
-
-
-def _use_wal(conn, attempts: int = 100):
-    """Switch a new database to WAL (it is stored in the file, so later opens skip this).
-
-    The switch needs the database to itself and SQLite does not wait for that, so when the server
-    and the indexer open a brand-new index together, retry briefly instead of failing."""
-    for _ in range(attempts):
-        try:
-            if conn.execute("PRAGMA journal_mode").fetchone()[0] != "wal":
-                conn.execute("PRAGMA journal_mode=WAL")
-            return
-        except sqlite3.OperationalError as e:
-            if "locked" not in str(e):
-                raise
-            time.sleep(0.05)
-    raise sqlite3.OperationalError("database is locked (could not switch the index to WAL mode)")
-
-
-def _missing_columns(conn) -> list[str]:
-    have = {r["name"] for r in conn.execute("PRAGMA table_info(files)")}
-    return [col for col in LATER_COLUMNS if col not in have]
-
-
-def _drop_derived(conn, file_id: int):
-    """Everything derived from a file's contents: transcript lines and document passages."""
-    from . import passages
-
-    _drop_segments(conn, file_id)
-    passages.drop_file(conn, file_id)
-
-
-def _drop_segments(conn, file_id: int):
-    conn.execute("DELETE FROM segments_fts WHERE rowid IN (SELECT id FROM segments WHERE file_id=?)", (file_id,))
-    conn.execute("DELETE FROM segments WHERE file_id=?", (file_id,))
-
-
-def delete_file(conn, file_id: int):
-    """Drop one file and everything derived from it from the index (the file itself is not touched)."""
-    conn.execute("DELETE FROM files WHERE id=?", (file_id,))
-    conn.execute("DELETE FROM files_fts WHERE rowid=?", (file_id,))
-    _drop_derived(conn, file_id)
-
-
-def forget(path: str) -> int:
-    """Drop a file, or every file under a folder, from the index. Returns how many."""
-    path = str(Path(path).expanduser().resolve())
-    conn = connect()
-    try:
-        ids = [r[0] for r in conn.execute(
-            "SELECT id FROM files WHERE path = ? OR substr(path, 1, ?) = ?", (path, len(path) + 1, path + os.sep))]
-        for file_id in ids:
-            delete_file(conn, file_id)
-        conn.commit()
-        return len(ids)
-    finally:
-        conn.close()
+from .storage.catalog import delete_file, drop_derived
+from .storage.db import connect
 
 
 def _walk(root: Path):
@@ -199,7 +73,7 @@ def build_index(roots=None, progress=None, captions=None, on_caption=None, media
                     "embedding=NULL, dhash=NULL, sha1=NULL, visual_done=NULL WHERE id=?",
                     (*row, prev[0]),
                 )
-                _drop_derived(conn, prev[0])
+                drop_derived(conn, prev[0])
                 conn.execute("DELETE FROM files_fts WHERE rowid=?", (prev[0],))
                 file_id = prev[0]
                 stats["updated"] += 1
@@ -496,24 +370,6 @@ def _locate(conn, hit: Hit, file_id: int, terms: list[str]):
             return
 
 
-def stats() -> dict:
-    conn = connect()
-    try:
-        total, with_text, captioned = conn.execute(
-            "SELECT COUNT(*), COALESCE(SUM(has_text),0), COUNT(NULLIF(caption,'')) FROM files"
-        ).fetchone()
-        media = conn.execute("SELECT COUNT(*) FROM files WHERE media_done=1").fetchone()[0]
-        visual = conn.execute("SELECT COUNT(*) FROM files WHERE visual_done=1").fetchone()[0]
-        segments = conn.execute("SELECT COUNT(*) FROM segments").fetchone()[0]
-        return {
-            "files": total, "with_text": with_text, "captioned": captioned,
-            "media_indexed": media, "transcript_lines": segments, "visual_indexed": visual,
-            "db": str(settings.db_path),
-        }
-    finally:
-        conn.close()
-
-
 def _ts(date: str) -> float:
     return datetime.strptime(date.strip()[:10], "%Y-%m-%d").timestamp()
 
@@ -524,15 +380,3 @@ def _human(n: int) -> str:
             return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
         n /= 1024
     return f"{n:.1f} TB"
-
-
-def indexed_text(path: str) -> str:
-    """What the index knows about a file: AI description for images, metadata/description/transcript for media."""
-    conn = connect()
-    try:
-        row = conn.execute(
-            "SELECT t.content FROM files f JOIN files_fts t ON t.rowid = f.id WHERE f.path=?", (path,)
-        ).fetchone()
-        return (row["content"] or "") if row else ""
-    finally:
-        conn.close()
