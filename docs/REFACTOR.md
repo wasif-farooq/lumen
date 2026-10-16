@@ -88,16 +88,16 @@ build's import check still named the old `lumen.server` (fixed).
 - [x] `shared/widgets/` for reusable pieces; no file over 200 lines (largest: `chat_view.dart`, 184)
 - [x] Golden screenshots unchanged except Settings (the new Problems card); 7 new tests for error display (23 in all)
 
-## Phase 4: Clean-up ⬜
+## Phase 4: Clean-up ✅
 
-- [ ] Remove dead code (including the unused image-hash columns, via a schema version step)
-- [ ] API response models (typed responses for each route)
-- [ ] Magic numbers → named settings or constants
-- [ ] Type hints throughout; docstrings where the "why" isn't obvious; consistent naming
-- [ ] No duplicated helpers
-- [ ] ruff: CI enforces the full rule set in `pyproject.toml` (114 findings at the start) and `ruff format`
-- [ ] Dart: switch on `unawaited_futures`, `prefer_final_locals`, `directives_ordering`, `unnecessary_lambdas`
-- [ ] ruff and Dart lints clean with no ignores
+- [x] Remove dead code: the unused image-hash columns (`dhash`, `sha1`) dropped by the first schema version step (`PRAGMA user_version`); the unused Langfuse fields of `/api/status`; vulture finds nothing else
+- [x] API response models (`api/responses.py`, typed answer for each route; the JSON of every GET is identical to before, checked against the old server)
+- [x] Magic numbers → named constants where they are tunables (port, agent read budgets, thumbnail/upload sizes, timeouts, image-search thresholds, log sizes); unit conversions and image-model sizes stay inline
+- [x] Type hints throughout (ruff `ANN` enforced in `lumen/`), pyright (basic) in CI with 0 errors; docstrings where the "why" isn't obvious
+- [x] No duplicated helpers: one private-file writer for API keys and paired devices (`core/private_files.py`; it also closes a moment where `devices.json` was readable by others)
+- [x] ruff: CI enforces the full rule set (`E, W, F, I, B, UP, SIM, ANN`; 69 findings fixed) and `ruff format`
+- [x] Dart: `unawaited_futures`, `prefer_final_locals`, `directives_ordering`, `unnecessary_lambdas` on
+- [x] ruff, pyright and Dart lints clean with no ignores in the code (only rule-level choices in `pyproject.toml`: `B008` for FastAPI's `Depends`, `ANN401`, and no `ANN` for tests)
 
 ## Phase 5: Verify and release ⬜
 
