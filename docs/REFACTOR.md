@@ -34,14 +34,15 @@ The tests found two real bugs, fixed in their own commit: on first run the serve
 indexer could open the new index at the same moment and fail ("duplicate column name",
 "database is locked").
 
-## Phase 1: Backend structure ⬜
+## Phase 1: Backend structure 🔄
 
 Move code into small modules by responsibility; behaviour unchanged.
 
 - [ ] `core/`: one `Settings` object (no runtime mutation of module globals), paths, errors
 - [ ] `storage/`: connection factory, schema versions, `files_repo`, `chats_repo` (Repository)
 - [ ] `indexing/`: pipeline + one class per pass (Pipeline / Strategy); extractors by file type (Strategy); typed progress events replacing the `@@json` strings (Observer)
-- [ ] `search/`: text search, query parsing, visual search; add tests for document passages (`find_in_files`, `read_file` with a question) first
+- [x] Tests for document passages (`find_in_files`, `read_file` with a question), added before moving search
+- [ ] `search/`: text search, query parsing, visual search
 - [ ] `providers/`: common interface, Ollama and OpenAI-compatible adapters (Adapter), registry, checks
 - [ ] `agent/`: graph, prompts, session, `tools/` split by area
 - [ ] `fileops/`: plan / apply / undo (Command)
