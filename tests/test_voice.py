@@ -118,6 +118,7 @@ def test_a_change_waits_for_a_spoken_yes(env, local, model, voice):
         say(ws, pcm(0.6, loud=True), pcm(1.0, loud=False))
         second, _ = until_turn_done(ws)
     assert "action_done" in types(second) and target.is_dir()
+    assert {"type": "approval_answer", "approved": True} in second  # so the app closes its card
     assert voice.spoken[-1] == "Created the folder."
 
 

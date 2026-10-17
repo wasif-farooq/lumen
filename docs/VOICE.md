@@ -27,7 +27,8 @@ app (mic, speaker)  ── WebSocket /api/voice ──  lumen serve
                                                answer → speakable sentences (no markdown, file names
                                                          instead of paths)
   ◀───────────────────────────  PCM16 22.05 kHz  Piper, one sentence at a time
-  ◀── JSON events: transcript, tool_call, results, approval, answer, speaking, turn_done, error
+  ◀── JSON events: transcript, tool_call, results, approval, approval_answer, answer, speaking,
+                                                turn_done, error
 ```
 
 - **Protocol** (`/api/voice?chat_id=…`): binary frames are audio (client: PCM16 mono 16 kHz;
@@ -83,19 +84,29 @@ to load: Phase 2 should open the voice connection before the user speaks.
 
 ## Phase 2: App
 
-- [ ] Microphone capture (PCM16 16 kHz) and streamed playback on Linux desktop and Android;
-      pick the packages with a small spike in the Docker build first
-- [ ] Voice button in the composer; states: listening, thinking, speaking; tap to interrupt
-- [ ] Open the voice connection when voice mode is turned on (so the chat model is loaded before
-      the first question)
-- [ ] Hands-free (voice detection) and push-to-talk modes
-- [ ] Voice turns shown in the chat like typed ones (transcript as the user bubble)
-- [ ] Errors: no microphone or permission, server without voice support, connection lost
-- [ ] Settings → General: voice on/off, speech model size, voice
+- [x] Microphone capture (PCM16 16 kHz, `record`; parecord on Linux) and streamed playback
+      (`flutter_soloud` buffer stream); Android has the RECORD_AUDIO permission but is not built
+      or tried on a phone yet (Phase 3)
+- [x] Voice button in the composer; a voice bar above it: listening, hearing, thinking, speaking,
+      Stop to interrupt (and the rest of that answer's audio is dropped)
+- [x] The voice connection opens when voice is turned on (so the chat model is loaded before
+      the first question); a new chat is made by the server, an open one is continued
+- [x] Hands-free (voice detection) and push-to-talk modes
+- [x] Voice turns shown in the chat like typed ones (transcript as the user bubble); typing waits
+      while a spoken turn runs; approvals by button or by a spoken yes/no, either one closes the
+      card (the server sends `approval_answer`)
+- [x] Errors: no microphone or permission, server without voice support, laptop not reachable,
+      connection lost; opening another chat turns voice off; turning voice off while it is still
+      connecting leaves nothing open
+- [x] Tests with a fake microphone, speaker and connection (13, `app/test/voice_test.dart`)
+
+The settings screen for voice moved to Phase 3: the settings exist on the server, and the app
+uses their defaults until then.
 
 ## Phase 3: Ship
 
 - [ ] Licensing decision (above), then packaging: voice extra in the bundle or a separate download
 - [ ] First-use download of the voice with progress in the app
+- [ ] Settings → General: voice on/off, speech model size, voice
 - [ ] README: voice chat, privacy (audio never leaves the laptop with local models)
 - [ ] Real-device test on a phone; latency check against the target

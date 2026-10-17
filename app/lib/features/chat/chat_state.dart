@@ -15,8 +15,12 @@ mixin ChatState on ChangeNotifier {
   String? chatId;
   List<ChatEvent> events = [];
   bool busy = false;
+  bool voiceTurn = false; // a spoken turn is running: typing waits for it (approvals don't)
   String? working; // "Searching your files…" while the agent runs a tool
   Hit? selected;
+
+  /// While voice chat is on, approvals go through it (so the result is spoken too).
+  void Function(bool approved)? onApprove;
 
   Future<void> openChat(String id) async {
     chatId = id;
@@ -63,6 +67,12 @@ mixin ChatState on ChangeNotifier {
   Future<void> answerApproval(bool approved) async {
     if (busy || chatId == null || pendingApproval == null) return;
     events.add(ChatEvent('approval_answer', {'approved': approved}));
+    final voice = onApprove;
+    if (voice != null) {
+      voice(approved);
+      notifyListeners();
+      return;
+    }
     await _run(() => api.approve(chatId!, approved), approved ? 'Making the change…' : 'Cancelling…');
   }
 
@@ -79,7 +89,7 @@ mixin ChatState on ChangeNotifier {
 
   Future<void> send(String text) async {
     text = text.trim();
-    if (text.isEmpty || busy || pendingApproval != null) return;
+    if (text.isEmpty || busy || voiceTurn || pendingApproval != null) return;
     await _run(() async* {
       chatId ??= (await api.newChat()).id;
       events.add(ChatEvent('user', {'text': text}));
@@ -94,21 +104,7 @@ mixin ChatState on ChangeNotifier {
     notifyListeners();
     try {
       await for (final e in start()) {
-        switch (e.type) {
-          case 'started':
-          case 'done':
-            break;
-          case 'tool_call':
-            working = _describeTool(e.data['name'] as String?);
-            events.add(e);
-          case 'results':
-            events.add(e);
-            if (e.hits.isNotEmpty) selected = e.hits.first;
-            working = 'Thinking…';
-          default:
-            events.add(e);
-        }
-        notifyListeners();
+        apply(e);
       }
       chats = await api.chats();
     } on Object catch (e, st) {
@@ -122,9 +118,44 @@ mixin ChatState on ChangeNotifier {
     }
   }
 
+  /// Reload the chat list (titles change after the first message).
+  Future<void> refreshChats() async {
+    try {
+      chats = await api.chats();
+      notifyListeners();
+    } on ApiError {
+      // logged by the API client; the list stays as it was
+    }
+  }
+
+  /// Add one event of an agent turn to the open chat (typed turns, and voice turns as they come).
+  void apply(ChatEvent e) {
+    switch (e.type) {
+      case 'started':
+      case 'done':
+        break;
+      case 'tool_call':
+        working = _describeTool(e.data['name'] as String?);
+        events.add(e);
+      case 'results':
+        events.add(e);
+        if (e.hits.isNotEmpty) selected = e.hits.first;
+        working = 'Thinking…';
+      default:
+        events.add(e);
+    }
+    notifyListeners();
+  }
+
+  /// Show (or clear) what is happening, e.g. "Listening…" during a voice turn.
+  void setWorking(String? text) {
+    working = text;
+    notifyListeners();
+  }
+
   /// "Find similar" on an image result, or a dropped/attached photo: results go into the chat.
   Future<void> findSimilar({String? path, Uint8List? photo}) async {
-    if (busy) return;
+    if (busy || voiceTurn) return;
     busy = true;
     working = 'Looking for similar images…';
     notifyListeners();

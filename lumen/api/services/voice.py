@@ -134,6 +134,7 @@ class VoiceCall:
         if await asyncio.to_thread(lambda: self.chats.session(self.chat_id).waiting) is None:
             return await self._say("There is nothing waiting for approval.")
         self.chats.log(self.chat_id, "approval_answer", {"approved": approved})
+        await self._send({"type": "approval_answer", "approved": approved})  # the app closes its card
         await self._agent(lambda s: s.resume(approved))
 
     async def _agent(self, run: Callable[..., Iterator]) -> None:

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../core/app_state.dart';
 import '../../shared/theme.dart';
 import '../../shared/widgets/photo_picker.dart';
+import '../voice/voice_bar.dart';
 
 /// Message box with send button.
 class Composer extends StatefulWidget {
@@ -35,7 +36,7 @@ class _ComposerState extends State<Composer> {
 
   void _send() {
     final text = _ctrl.text;
-    if (text.trim().isEmpty || widget.state.busy || widget.state.pendingApproval != null) return;
+    if (text.trim().isEmpty || widget.state.busy || widget.state.voiceTurn || widget.state.pendingApproval != null) return;
     _ctrl.clear();
     unawaited(widget.state.send(text));
     _focus.requestFocus();
@@ -43,13 +44,14 @@ class _ComposerState extends State<Composer> {
 
   @override
   Widget build(BuildContext context) {
-    final busy = widget.state.busy;
+    final busy = widget.state.busy || widget.state.voiceTurn;
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 820),
         child: Padding(
           padding: EdgeInsets.fromLTRB(widget.compact ? 12 : 28, 0, widget.compact ? 12 : 28, widget.compact ? 12 : 10),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
+            VoiceBar(voice: widget.state.voice),
             Container(
               padding: const EdgeInsets.fromLTRB(16, 6, 6, 6),
               decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: C.line2)),
@@ -75,6 +77,7 @@ class _ComposerState extends State<Composer> {
                     ),
                   ),
                 ),
+                VoiceButton(voice: widget.state.voice),
                 IconButton(
                   tooltip: 'Search with a photo',
                   onPressed: busy ? null : _attach,

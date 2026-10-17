@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../features/chat/chat_state.dart';
+import '../features/voice/voice_controller.dart';
 import 'api/api.dart';
 import 'errors/errors.dart';
 
@@ -12,7 +13,12 @@ export 'models/hit.dart';
 /// The app's connection to one laptop: its status, and the conversations (ChatState),
 /// shared by desktop and mobile.
 class AppState extends ChangeNotifier with ChatState {
-  AppState(this.api);
+  AppState(this.api, {VoiceDevices? voiceDevices}) {
+    voice = VoiceController(this, devices: voiceDevices);
+  }
+
+  /// Talking to Lumen (off until the microphone button is pressed).
+  late final VoiceController voice;
 
   @override
   Api api;
