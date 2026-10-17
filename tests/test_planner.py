@@ -442,3 +442,13 @@ def test_the_same_to_do_twice_is_not_a_question(local, model):
     model.script = [tool_call("complete_todo", todo="milk"), AIMessage(content="Done.")]
     chat(local, "I bought the milk")
     assert len(local.get("/api/todos").json()) == 1
+
+
+def test_desktop_notifications_without_notify_send_go_through_gdbus(commands):
+    from conftest import desktop_notify
+
+    desktop_notify("Reminder", "pay the rent")
+    assert commands[-1][1:] == ["-a", "Lumen", "-i", "appointment-soon", "-u", "normal", "Reminder", "pay the rent"]
+    commands.missing = {"notify-send"}
+    desktop_notify("Reminder", "pay the rent")
+    assert commands[-1][1:4] == ["call", "--session", "--dest"] and "pay the rent" in commands[-1]

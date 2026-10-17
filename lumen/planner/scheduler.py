@@ -24,20 +24,23 @@ LATE = 120  # seconds: later than this, a reminder counts as missed (the server 
 
 
 def desktop_notify(title: str, body: str) -> None:
-    """A notification on the laptop's desktop (libnotify's notify-send)."""
-    exe = shutil.which("notify-send")
-    if exe is None:
+    """A notification on the laptop's desktop: notify-send (libnotify), or straight to the desktop's
+    notification service with gdbus (part of GLib, there even when libnotify-bin isn't)."""
+    if exe := shutil.which("notify-send"):
+        cmd = [exe, "-a", "Lumen", "-i", "appointment-soon", "-u", "normal", title, body]
+    elif exe := shutil.which("gdbus"):  # the timeout is in ms ("-1" would be read as an option)
+        cmd = [exe, "call", "--session", "--dest", "org.freedesktop.Notifications",
+               "--object-path", "/org/freedesktop/Notifications", "--method", "org.freedesktop.Notifications.Notify",
+               "Lumen", "0", "appointment-soon", title, body, "[]", "{}", "10000"]  # fmt: skip
+    else:
         if not getattr(desktop_notify, "warned", False):
-            log.warning("notify-send not found: reminders show in the app only (install libnotify-bin)")
+            log.warning("no notify-send or gdbus: reminders show in the app only (install libnotify-bin)")
             desktop_notify.warned = True  # type: ignore[attr-defined]
         return
     try:
-        subprocess.run(
-            [exe, "-a", "Lumen", "-i", "appointment-soon", "-u", "normal", title, body],
-            capture_output=True,
-            timeout=5,
-            check=False,
-        )
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=5, check=False)
+        if r.returncode != 0:
+            log.warning("desktop notification failed: %s", r.stderr.strip()[:200])
     except (OSError, subprocess.TimeoutExpired) as e:
         log.warning("desktop notification failed: %s", e)
 

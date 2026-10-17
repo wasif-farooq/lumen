@@ -506,6 +506,7 @@ def pcm(seconds: float, loud: bool) -> bytes:
 # ---------- notes, to-dos and reminders ----------
 
 from lumen.agent.tools.planner import wanted as wants_planner  # noqa: E402,F401
+from lumen.planner.scheduler import desktop_notify  # noqa: E402,F401
 from lumen.planner.times import parse_when  # noqa: E402,F401  (tests import it from here)
 
 
@@ -529,6 +530,27 @@ class Reminders:
 @pytest.fixture
 def reminders(env) -> Reminders:
     return Reminders(env.app.state.services.reminders)
+
+
+@pytest.fixture
+def commands(monkeypatch):
+    """Commands Lumen runs (subprocess.run) are recorded instead; set `.missing` to hide programs."""
+
+    class Ran(list):
+        missing: set = set()
+
+    ran = Ran()
+    import shutil as _shutil
+    import subprocess as _subprocess
+
+    real_which = _shutil.which
+    monkeypatch.setattr(
+        _shutil, "which", lambda name, *a, **k: None if name in ran.missing else real_which(name) or f"/usr/bin/{name}"
+    )
+    monkeypatch.setattr(
+        _subprocess, "run", lambda cmd, *a, **k: ran.append(cmd) or _subprocess.CompletedProcess(cmd, 0, "", "")
+    )
+    return ran
 
 
 @pytest.fixture
