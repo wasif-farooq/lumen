@@ -13,6 +13,7 @@ It runs on your laptop with a local model (Ollama) by default. Nothing leaves th
 - **Answers questions about a file** by reading it, and opens files or shows them in their folder.
 - **Reads files inside the app**, on the laptop and on a paired phone: PDFs open at the page that matched, with the words marked; images zoom; text, code and Markdown load as you scroll; Word, Excel, PowerPoint, OpenDocument and EPUB show as readable documents with real tables ([Viewing files](#viewing-files)).
 - **Notes, to-dos and reminders**: "note: the plumber is Ahmed, 0300 1234567", "add milk to my shopping list", "remind me every Monday at 9 to pay the rent", by typing or talking ([Notes, to-dos and reminders](#notes-to-dos-and-reminders)).
+- **Finds your mail too**: connect a mailbox and its mail (and the text of its attachments) is found next to your files, in search and in chat. Read-only: nothing in the mailbox changes ([Mail](#mail)).
 - **Talk to it**: ask out loud and hear the answer, in the same chat as typing. Speech is turned into text and back on your laptop ([Voice chat](#voice-chat)).
 - **Organises files with your approval**: create folders and files, copy, move and rename. Every change asks first and can be undone. It cannot delete anything.
 - **Skips what code projects ignore**: build output, caches and logs listed in their `.gitignore` files (a switch in Settings → Sync).
@@ -118,6 +119,17 @@ Say or type it in chat, or use **Notes & to-dos** in the sidebar (on the phone: 
 
 Times are worked out by Lumen from your own words, not by the model; when it can't tell when you mean, it asks instead of guessing. Desktop notifications need `notify-send` (`libnotify-bin`, already on Ubuntu and Pop!_OS). The design and how well the small model picks these up are in [docs/PLANNER.md](docs/PLANNER.md).
 
+## Mail
+
+**Settings → Mail → Add a mailbox** connects any mailbox that speaks IMAP. Gmail, Yahoo and iCloud need an **app password** (the form says where to make one); Fastmail and other providers work with their IMAP settings, filled in for common ones. Outlook.com has turned passwords off and needs "Sign in with Microsoft", which isn't there yet.
+
+- **What's indexed**: every folder except Trash, Spam and Drafts, going back as far as you choose (a year by default): each mail's own text (HTML as text, quoted replies left out) and the text of attachments Lumen can read (PDF, Word, Excel…). New mail is read every 10 minutes, or now with **Sync now**.
+- **Finding it**: mail shows up in search and chat as email cards, next to files; a search that mentions mail ("the email about the invoice") puts mail first. Chat can read a mail and its attachments to answer.
+- **Reading it**: a mail opens in the viewer with its sender, date, text and attachments; an attachment is fetched from the mail server when you open it and shows like a file.
+- **Read-only and private**: folders are opened read-only and mail is fetched without marking it read, so nothing in the mailbox changes. The password stays on the laptop in a file only you can read and is never sent to the app; a paired phone can find and read mail but not add or remove mailboxes. Removing a mailbox deletes its sign-in, its indexed mail and opened attachments.
+
+Sorting mail into folders and to-dos from mail were measured with the small model and left for later; the results are in [docs/MAIL.md](docs/MAIL.md).
+
 ## Voice chat
 
 Click the microphone in the message box and ask. Lumen hears where your question ends, answers in the chat as if you had typed it (search results, previews and all), and reads the answer out. Typed and spoken messages mix freely in one chat.
@@ -219,6 +231,7 @@ The server (`lumen/`) is a package per area. Each one exposes a few functions or
 | `agent/` | the LangGraph agent, its prompts, a chat session, and its tools by area | |
 | `viewer/` | reading files in the app: what a file is, PDF pages and matches, text in pieces, documents as blocks | |
 | `planner/` | notes (Markdown files), to-do lists and reminders (planner.db), plain-words times, reminders going off | |
+| `mail/` | mailboxes: accounts and their sign-in, read-only IMAP, a mail's text and attachments, mail.db with its full-text index, the background sync, mail in search | |
 | `voice/` | voice chat's speech: voice detection and end of a question, speech to text, text to speech, answers made speakable | Strategy (speech backend) |
 | `fileops/` | file changes: plan, approve, apply, undo (journal) | Command |
 | `api/` | `create_app()`: routes per area, request and response models, services per app (indexer, chats, pairing), auth, one error shape | Factory, dependency injection |
@@ -230,7 +243,7 @@ The app (`app/lib/`) has the same shape:
 
 - `core/`: `api/` (an `ApiClient` with timeouts and error parsing, one mixin per area), `models/`, `errors/` (`runGuarded`, the reporter for uncaught errors), `logging/`, and `AppState` (the connection to one laptop, with the chats).
 - `core/audio/`: the microphone and streamed playback, behind small interfaces so tests use fakes.
-- `features/`: chat, voice, preview, sync, models, settings, pairing and the desktop/phone shells. Each has a `ChangeNotifier` controller, an `*_actions.dart` for dialogs and messages, and widgets that only display.
+- `features/`: chat, voice, preview, viewer, mail, sync, models, settings, pairing and the desktop/phone shells. Each has a `ChangeNotifier` controller, an `*_actions.dart` for dialogs and messages, and widgets that only display.
 - `shared/`: the theme and reusable widgets, including the error views (snackbar with Details, a card with Retry).
 
 ## Contributing

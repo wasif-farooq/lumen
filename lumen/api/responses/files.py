@@ -17,6 +17,7 @@ class HitOut(Out):
     at: float | None = None  # where in a video/audio the words are said (seconds)
     at_text: str = ""
     partial: bool = False
+    sender: str = ""  # a mail's sender (kind "mail", path "mail:<id>")
 
 
 class ImageHitOut(HitOut):

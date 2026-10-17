@@ -66,8 +66,8 @@ class Sidebar extends StatelessWidget {
         _NavButton(
           icon: Icons.settings_outlined,
           label: 'Settings',
-          active: page == 'settings' || page == 'models',
-          onTap: () => onPage(page == 'settings' || page == 'models' ? 'chat' : 'settings'),
+          active: page == 'settings' || page == 'models' || page == 'mail',
+          onTap: () => onPage(page == 'settings' || page == 'models' || page == 'mail' ? 'chat' : 'settings'),
         ),
         const SizedBox(height: 8),
         Material(

@@ -33,6 +33,7 @@ class ResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (hit.isMail) return _MailCard(hit: hit, compact: compact, onView: onView ?? onSelect);
     if (hit.kind == 'video' && !compact) return VideoCard(hit: hit, api: api, selected: selected, onSelect: onSelect, onOpen: onOpen, onShow: onShow);
     final leading = hit.kind == 'image'
         ? ClipRRect(borderRadius: BorderRadius.circular(6), child: SizedBox(width: compact ? 36 : 40, height: compact ? 44 : 48, child: ApiImage(api: api, path: hit.path, w: 96)))
@@ -113,6 +114,54 @@ class ResultCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A mail found by a search: who sent it, when, and the matching words. It opens in the viewer.
+class _MailCard extends StatelessWidget {
+  const _MailCard({required this.hit, required this.compact, required this.onView});
+  final Hit hit;
+  final bool compact;
+  final VoidCallback onView;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: C.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: C.line)),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onView,
+          child: Padding(
+            padding: EdgeInsets.all(compact ? 12 : 14),
+            child: Row(crossAxisAlignment: compact ? CrossAxisAlignment.center : CrossAxisAlignment.start, children: [
+              Container(
+                width: compact ? 36 : 40,
+                height: compact ? 44 : 48,
+                decoration: BoxDecoration(color: const Color(0xFF2A2418), borderRadius: BorderRadius.circular(6)),
+                child: const Icon(Icons.mail_outline, size: 20, color: C.accent),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(hit.name, style: const TextStyle(fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 3),
+                  Text('Email from ${hit.sender.isEmpty ? 'unknown' : hit.sender} · ${humanDate(hit.mtime)}',
+                      style: const TextStyle(fontSize: 13, color: C.muted), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  if (hit.snippet.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Highlighted(hit.snippet, maxLines: compact ? 1 : 2),
+                  ],
+                ]),
+              ),
+              if (compact)
+                const Icon(Icons.chevron_right, color: C.muted)
+              else ...[
+                const SizedBox(width: 10),
+                OutlinedButton(onPressed: onView, style: _smallOutline, child: const Text('Read')),
+              ],
+            ]),
+          ),
+        ),
+      );
 }
 
 final _small = FilledButton.styleFrom(minimumSize: const Size(64, 36), padding: const EdgeInsets.symmetric(horizontal: 14), textStyle: const TextStyle(fontFamily: sans, fontSize: 13, fontWeight: FontWeight.w600));

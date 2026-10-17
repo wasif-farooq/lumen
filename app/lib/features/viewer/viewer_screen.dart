@@ -5,11 +5,13 @@ import 'package:flutter/services.dart';
 
 import '../../core/app_state.dart';
 import '../../core/errors/errors.dart';
+import '../../core/errors/run_guarded.dart';
 import '../../shared/theme.dart';
 import '../../shared/widgets/marked_text.dart';
 import 'document_view.dart';
 import 'finder.dart';
 import 'image_view.dart';
+import 'mail_view.dart';
 import 'media_view.dart';
 import 'pdf_view.dart';
 import 'text_view.dart';
@@ -50,8 +52,10 @@ class _ViewerScreenState extends State<ViewerScreen> {
   late Future<ViewInfo> info = _load();
   final finder = Finder();
   final _find = TextEditingController();
+  ViewInfo? attachment; // a mail's attachment, shown in place of the mail
 
   ViewTarget get target => widget.targets[index];
+  bool get _mail => target.path.startsWith('mail:');
 
   Future<ViewInfo> _load() => widget.api.viewInfo(target.path);
 
@@ -61,8 +65,17 @@ class _ViewerScreenState extends State<ViewerScreen> {
     setState(() {
       index = next;
       info = _load();
+      attachment = null;
       _find.clear();
     });
+  }
+
+  /// Back from an attachment to its mail, else out of the viewer.
+  void _back() => attachment != null ? setState(() => attachment = null) : widget.actions.close();
+
+  Future<void> _openAttachment(MailMessage m, MailAttachment a) async {
+    final i = await runGuarded(context, () => widget.api.mailAttachment(m.id, a.idx), failure: 'Could not open ${a.name}');
+    if (i != null && mounted) setState(() => attachment = i);
   }
 
   @override
@@ -75,7 +88,7 @@ class _ViewerScreenState extends State<ViewerScreen> {
   @override
   Widget build(BuildContext context) => CallbackShortcuts(
         bindings: {
-          const SingleActivator(LogicalKeyboardKey.escape): widget.actions.close,
+          const SingleActivator(LogicalKeyboardKey.escape): _back,
           const SingleActivator(LogicalKeyboardKey.arrowRight, alt: true): () => _go(1),
           const SingleActivator(LogicalKeyboardKey.arrowLeft, alt: true): () => _go(-1),
         },
@@ -90,7 +103,7 @@ class _ViewerScreenState extends State<ViewerScreen> {
                 builder: (context, snap) {
                   if (snap.hasError) return _problem(userMessage(snap.error!));
                   if (!snap.hasData) return const Center(child: CircularProgressIndicator(color: C.accent));
-                  return _body(snap.data!);
+                  return attachment != null ? KeyedSubtree(key: ValueKey(attachment!.path), child: _body(attachment!)) : _body(snap.data!);
                 },
               ),
             ),
@@ -105,8 +118,9 @@ class _ViewerScreenState extends State<ViewerScreen> {
       'image' => ImageView(api: api, info: i, onSwipe: _go),
       'text' || 'markdown' || 'code' => TextView(api: api, info: i, terms: target.terms, finder: finder),
       'document' || 'table' || 'slides' => DocumentView(api: api, info: i, terms: target.terms, finder: finder),
+      'mail' => MailView(api: api, info: i, terms: target.terms, finder: finder, onAttachment: _openAttachment),
       'video' || 'audio' => MediaView(api: api, info: i, at: target.at, onPlayOnLaptop: (s) => widget.actions.openOnLaptop(i.path, s)),
-      _ => _problem("This kind of file can't be shown in the app.", open: true),
+      _ => _problem("This kind of file can't be shown in the app.", open: !_mail),
     };
   }
 
@@ -129,12 +143,12 @@ class _ViewerScreenState extends State<ViewerScreen> {
       padding: EdgeInsets.fromLTRB(8, 6, widget.compact ? 4 : 12, 6),
       decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: C.line))),
       child: Row(children: [
-        IconButton(tooltip: 'Back (Esc)', onPressed: a.close, icon: const Icon(Icons.arrow_back)),
+        IconButton(tooltip: 'Back (Esc)', onPressed: _back, icon: const Icon(Icons.arrow_back)),
         const SizedBox(width: 4),
         Expanded(
-          child: Text(target.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          child: Text(attachment?.name ?? target.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
         ),
-        if (many) ...[
+        if (many && attachment == null) ...[
           IconButton(tooltip: 'Previous result', onPressed: index > 0 ? () => _go(-1) : null, icon: const Icon(Icons.chevron_left)),
           Text('${index + 1}/${widget.targets.length}', style: const TextStyle(color: C.muted, fontSize: 13)),
           IconButton(
@@ -157,14 +171,16 @@ class _ViewerScreenState extends State<ViewerScreen> {
           onSelected: (v) => switch (v) {
             'open' => a.openOnLaptop(target.path, target.at ?? 0),
             'show' => a.showInFolder(target.path),
-            'ask' => a.ask?.call(target.name),
+            'ask' => a.ask?.call(_mail ? 'the email "${target.name}"' : target.name),
             'find' => unawaited(_askFind()),
             _ => null,
           },
           itemBuilder: (_) => [
             if (widget.compact) const PopupMenuItem(value: 'find', child: Text('Find in file')),
-            PopupMenuItem(value: 'open', child: Text(widget.compact ? 'Open on the laptop' : 'Open in default app')),
-            const PopupMenuItem(value: 'show', child: Text('Show in folder')),
+            if (!_mail) ...[  // a mail and its attachments aren't files on the laptop
+              PopupMenuItem(value: 'open', child: Text(widget.compact ? 'Open on the laptop' : 'Open in default app')),
+              const PopupMenuItem(value: 'show', child: Text('Show in folder')),
+            ],
             if (a.ask != null) const PopupMenuItem(value: 'ask', child: Text('Ask about it')),
           ],
         ),

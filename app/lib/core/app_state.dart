@@ -10,6 +10,7 @@ export 'api/api.dart';
 export 'models/chat.dart';
 export 'models/file_info.dart';
 export 'models/hit.dart';
+export 'models/mail.dart';
 export 'models/planner.dart';
 export 'models/view.dart';
 

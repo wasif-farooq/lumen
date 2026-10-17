@@ -3,18 +3,19 @@ import 'package:flutter/material.dart';
 import '../../core/app_state.dart';
 import '../../shared/theme.dart';
 import '../../shared/widgets/common.dart';
+import '../mail/mail_settings.dart';
 import '../models/models_screen.dart';
 import '../sync/sync_screen.dart';
 import 'general_settings.dart';
 
-/// Settings with tabs: General · Models · Sync.
+/// Settings with tabs: General · Models · Sync · Mail.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.state, this.tab = 0, this.onTab});
   final AppState state;
-  final int tab; // 0 General, 1 Models, 2 Sync
+  final int tab; // 0 General, 1 Models, 2 Sync, 3 Mail
   final ValueChanged<int>? onTab;
 
-  static const tabs = ['General', 'Models', 'Sync'];
+  static const tabs = ['General', 'Models', 'Sync', 'Mail'];
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -84,6 +85,7 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
               _tab(Icons.hub_outlined, 'Models'),
               _tab(Icons.sync, 'Sync',
                   dot: st['indexing'] == true ? StatusDot(color: st['index_paused'] == true ? C.blue : C.accent) : null),
+              _tab(Icons.mail_outline, 'Mail'),
             ],
           ),
         ]),
@@ -94,6 +96,7 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
             () => GeneralSettings(state: widget.state),
             () => ModelsScreen(state: widget.state, embedded: true),
             () => IndexScreen(state: widget.state, embedded: true),
+            () => MailSettings(state: widget.state),
           ].indexed)
             _opened.contains(i) ? page() : const SizedBox.shrink(),
         ]),

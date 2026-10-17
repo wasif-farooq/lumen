@@ -20,6 +20,12 @@ String humanDate(double mtime) {
   return '${months[d.month - 1]} ${d.day}, ${d.year}';
 }
 
+/// Seconds since 1970 -> "Jun 1, 2019, 14:05" (a mail's date)
+String fullDate(double t) {
+  final d = DateTime.fromMillisecondsSinceEpoch((t * 1000).round());
+  return '${humanDate(t)}, ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+}
+
 /// Seconds -> "1:02:05" / "2:05"
 String clock(double seconds) {
   final s = seconds.floor();

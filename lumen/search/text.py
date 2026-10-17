@@ -24,9 +24,14 @@ class Hit:
     at: float | None = None  # where in a video/audio the words are said
     at_text: str = ""
     partial: bool = False  # found by the "any word" fallback: not every word matched
+    kind: str = ""  # "mail" for a mail (path "mail:<id>"); otherwise from the extension
+    sender: str = ""  # a mail's sender
 
     def line(self, n: int) -> str:
         when = datetime.fromtimestamp(self.mtime).strftime("%Y-%m-%d")
+        if self.kind == "mail":
+            out = f"{n}. email: {self.name}  (from {self.sender}, {when})\n   path: {self.path}"
+            return out + (f"\n   match: {self.snippet}" if self.snippet else "")
         length = f"{fmt_time(self.duration)} long, " if self.duration else ""
         out = f"{n}. {self.name}  ({length}{human_size(self.size)}, modified {when})\n   path: {self.path}"
         if self.partial:
@@ -49,8 +54,9 @@ class Hit:
             "duration": self.duration,
             "at": self.at,
             "at_text": self.at_text,
-            "kind": kind_of(self.ext),
+            "kind": self.kind or kind_of(self.ext),
             "partial": self.partial,
+            "sender": self.sender,
         }
 
 
@@ -135,6 +141,28 @@ def search(
     finally:
         conn.close()
     return hits
+
+
+def search_all(
+    query: str = "",
+    ext: str = "",
+    modified_after: str = "",
+    modified_before: str = "",
+    folder: str = "",
+    limit: int = 10,
+    min_minutes: float = 0,
+    max_minutes: float = 0,
+) -> list[Hit]:
+    """Files and indexed mail together (search() is files only). Mail is left out when the search
+    asks for things only files have: a file type, a folder, a length."""
+    files = search(query, ext, modified_after, modified_before, folder, limit, min_minutes, max_minutes)
+    wants_files_only = bool(ext.strip() or folder.strip() or min_minutes or max_minutes)
+    if wants_files_only:
+        return files
+    from ..mail import search as mail_search  # mail is optional: nothing indexed means no hits
+
+    mails = mail_search.search(query, limit, modified_after, modified_before)
+    return mail_search.mixed(files, mails, query, limit) if mails else files
 
 
 # Multiplier on the (negative) bm25 score: 1 keeps documents on top, smaller values push files down

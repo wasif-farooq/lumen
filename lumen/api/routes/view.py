@@ -9,6 +9,8 @@ from fastapi.responses import FileResponse, Response
 
 from ...core import errors
 from ...core.settings import settings
+from ...mail import search as mail_search
+from ...mail.store import mail_store
 from ...viewer import blocks, kinds, pdf, text
 from .. import thumbnails
 from ..deps import auth, checked_path
@@ -20,7 +22,14 @@ router = APIRouter(dependencies=[Depends(auth)])
 
 
 def viewable(path: str) -> Path:
-    """A file the viewer may show: inside the indexed folders, not excluded, a file."""
+    """A file the viewer may show: inside the indexed folders, not excluded, a file; or a mail
+    attachment fetched for the viewer."""
+    cache = (settings.data_dir / "mail-cache").resolve()
+    p = Path(path).resolve()
+    if p.is_relative_to(cache) and p != cache:
+        if not p.is_file():
+            raise errors.NotFound("File not found")
+        return p
     p = checked_path(path)
     if any(p == Path(e) or p.is_relative_to(Path(e)) for e in settings.excluded):
         raise errors.OutsideFolders("This file is kept out of Lumen (Settings → Sync).")
@@ -31,6 +40,11 @@ def viewable(path: str) -> Path:
 
 @router.get("/api/view")
 def describe(path: str) -> dict:
+    if mail_search.is_mail(path):  # shown from /api/mail/messages/{id}
+        m = mail_store().get(mail_search.mail_id(path))
+        if m is None:
+            raise errors.NotFound("That mail isn't indexed (its account was removed).")
+        return {"path": path, "name": m["subject"], "ext": "eml", "kind": "mail", "size": m["size"] or 0}
     return kinds.describe(viewable(path))
 
 

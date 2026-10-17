@@ -63,6 +63,7 @@ class _MobileChatState extends State<MobileChat> {
   }
 
   void _sheet(Hit hit) {
+    if (hit.isMail) return _view([hit], 0); // a mail has no file details: read it
     unawaited(showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,

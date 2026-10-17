@@ -18,12 +18,16 @@ from .indexing import (
     RecentFile,
     Removed,
 )
+from .mail import MailAccountOut, MailAttachmentOut, MailOut
 from .pairing import DeviceOut, Hello, Paired, PairStarted
 from .planner import ListOut, NoteOut, NoteSummary, ReminderOut, TodoOut
 from .providers import CheckStep, ModelCheck, ModelOut, ProviderOut, ProvidersOut, ProviderTest, PullOut, Role
 from .status import Diagnostics, FolderOut, IndexStats, ModelsOut, PowerOut, SettingsOut, StatusOut
 
 __all__ = [
+    "MailAccountOut",
+    "MailAttachmentOut",
+    "MailOut",
     "NoteSummary",
     "NoteOut",
     "ListOut",

@@ -1,6 +1,6 @@
-/// One file found by a search or by the agent.
+/// One file (or mail: kind "mail", path `mail:<id>`) found by a search or by the agent.
 class Hit {
-  final String path, name, ext, kind, snippet, atText;
+  final String path, name, ext, kind, snippet, atText, sender;
   final int size;
   final double mtime;
   final double? duration, at;
@@ -12,6 +12,7 @@ class Hit {
         kind = j['kind'] as String? ?? 'file',
         snippet = j['snippet'] as String? ?? '',
         atText = j['at_text'] as String? ?? '',
+        sender = j['sender'] as String? ?? '',
         size = (j['size'] as num? ?? 0).toInt(),
         mtime = (j['mtime'] as num? ?? 0).toDouble(),
         duration = (j['duration'] as num?)?.toDouble(),
@@ -22,4 +23,5 @@ class Hit {
 
   String get folder => path.substring(0, path.lastIndexOf('/').clamp(0, path.length));
   bool get isMedia => kind == 'video' || kind == 'audio';
+  bool get isMail => kind == 'mail';
 }
