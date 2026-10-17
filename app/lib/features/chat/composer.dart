@@ -8,6 +8,24 @@ import '../../shared/theme.dart';
 import '../../shared/widgets/photo_picker.dart';
 import '../voice/voice_bar.dart';
 
+/// Above the message box while Lumen works: "Searching your files · “tax” · PDF…".
+class StatusLine extends StatelessWidget {
+  const StatusLine({super.key, required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+        child: Row(children: [
+          const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: C.accent)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: C.text2)),
+          ),
+        ]),
+      );
+}
+
 /// Message box with send button.
 class Composer extends StatefulWidget {
   const Composer({super.key, required this.state, this.compact = false});
@@ -51,6 +69,8 @@ class _ComposerState extends State<Composer> {
         child: Padding(
           padding: EdgeInsets.fromLTRB(widget.compact ? 12 : 28, 0, widget.compact ? 12 : 28, widget.compact ? 12 : 10),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
+            // what Lumen is doing right now (the voice bar says it while voice is on)
+            if (widget.state.working != null && !widget.state.voice.on) StatusLine(text: widget.state.working!),
             VoiceBar(voice: widget.state.voice),
             Container(
               padding: const EdgeInsets.fromLTRB(16, 6, 6, 6),

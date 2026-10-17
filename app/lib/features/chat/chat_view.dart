@@ -11,7 +11,8 @@ import 'results.dart';
 import 'user_bubble.dart';
 import 'welcome.dart';
 
-/// The conversation: user bubbles, tool chips, result cards and answers.
+/// The conversation: user bubbles, result cards, answers and changes. What the agent is doing
+/// while it works is the status line above the message box, not part of the chat.
 class ChatView extends StatefulWidget {
   const ChatView({super.key, required this.state, required this.onOpen, required this.onShow, this.compact = false, this.onHitTap});
   final AppState state;
@@ -59,22 +60,20 @@ class _ChatViewState extends State<ChatView> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 820),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              for (final (i, e) in s.events.indexed) ...[
-                _event(i, e),
-                SizedBox(height: e.type == 'tool_call' ? 10 : 18),
-              ],
-              if (s.working != null)
-                Row(children: [
-                  const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: C.accent)),
-                  const SizedBox(width: 10),
-                  Text(s.working!, style: const TextStyle(color: C.text3)),
-                ]),
+              for (final (i, e) in s.events.indexed)
+                if (!_steps.contains(e.type)) ...[
+                  _event(i, e),
+                  const SizedBox(height: 18),
+                ],
             ]),
           ),
         ),
       ],
     );
   }
+
+  /// How it got there, not what came of it: not shown in the chat.
+  static const _steps = {'tool_call', 'approval_answer'};
 
   Widget _event(int i, ChatEvent e) {
     final s = widget.state;
@@ -84,8 +83,6 @@ class _ChatViewState extends State<ChatView> {
             ? Image.network(s.api.uploadUrl(e.upload!), headers: s.api.headers, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox())
             : (e.imagePath != null ? ApiImage(api: s.api, path: e.imagePath!, w: 320) : null);
         return UserBubble(text: e.text, compact: widget.compact, image: image);
-      case 'tool_call':
-        return ToolChip(name: e.data['name'] ?? '', args: Map<String, dynamic>.from(e.data['args'] ?? {}));
       case 'results':
         final hits = e.hits;
         if (hits.isEmpty) return const Text('No files matched.', style: TextStyle(color: C.text3));
@@ -132,8 +129,6 @@ class _ChatViewState extends State<ChatView> {
           busy: s.busy,
           onAnswer: s.answerApproval,
         );
-      case 'approval_answer':
-        return const SizedBox.shrink();
       case 'action_done':
         final id = e.data['id'] as String?;
         final undone = s.events.any((x) => x.type == 'undone' && x.data['action_id'] == id);

@@ -4,6 +4,7 @@ import '../../core/api/api.dart';
 import '../../core/errors/errors.dart';
 import '../../core/models/chat.dart';
 import '../../core/models/hit.dart';
+import 'tool_status.dart';
 
 /// Conversations: the list, the open chat and its events, the selected file, and running a
 /// turn of the agent. Part of AppState.
@@ -134,8 +135,8 @@ mixin ChatState on ChangeNotifier {
       case 'started':
       case 'done':
         break;
-      case 'tool_call':
-        working = _describeTool(e.data['name'] as String?);
+      case 'tool_call': // kept in the history; shown only as the status line while it runs
+        working = '${toolStatus(e.data['name'] as String? ?? '', Map<String, dynamic>.from(e.data['args'] as Map? ?? {}))}…';
         events.add(e);
       case 'results':
         events.add(e);
@@ -179,17 +180,4 @@ mixin ChatState on ChangeNotifier {
       notifyListeners();
     }
   }
-
-  String _describeTool(String? name) => switch (name) {
-        'search_files' => 'Searching your files…',
-        'read_file' => 'Reading the file…',
-        'open_file' => 'Opening…',
-        'show_in_folder' => 'Opening the folder…',
-        'list_dir' => 'Looking in the folder…',
-        'find_in_files' => 'Searching inside your files…',
-        'search_images' => 'Looking through your pictures…',
-        'find_similar_images' => 'Looking for similar images…',
-        'create_folder' || 'create_file' || 'copy_file' || 'move_file' => 'Preparing the change…',
-        _ => 'Working…',
-      };
 }
