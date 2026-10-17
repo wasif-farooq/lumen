@@ -77,7 +77,7 @@ class _ComposerState extends State<Composer> {
                     ),
                   ),
                 ),
-                VoiceButton(voice: widget.state.voice),
+                if (widget.state.voiceAvailable || widget.state.voice.on) VoiceButton(voice: widget.state.voice),
                 IconButton(
                   tooltip: 'Search with a photo',
                   onPressed: busy ? null : _attach,

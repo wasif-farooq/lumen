@@ -11,6 +11,7 @@ from ...core.settings import settings
 from ...indexing import power
 from ...providers import registry
 from ...storage import catalog
+from ...voice import tts
 from ..deps import auth, local_only, services
 from ..responses import Diagnostics, FolderOut, IndexStats, ModelsOut, PowerOut, SettingsOut, StatusOut
 from ..services import Services
@@ -68,6 +69,7 @@ def status(svc: Services = Depends(services)) -> StatusOut:
         ),
         lan=svc.lan,
         open_mode=settings.open_mode,
+        voice=tts.available(),
     )
 
 

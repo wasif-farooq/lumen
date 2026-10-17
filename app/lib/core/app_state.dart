@@ -34,6 +34,7 @@ class AppState extends ChangeNotifier with ChatState {
   bool get agentCloud => _models['agent_cloud'] == true;
   String get visionProvider => _models['vision_provider'] as String? ?? 'Ollama';
   bool get visionCloud => _models['vision_cloud'] == true;
+  bool get voiceAvailable => status?['voice'] == true; // the packages leave the speech engine out
 
   Future<bool> connect() async {
     try {

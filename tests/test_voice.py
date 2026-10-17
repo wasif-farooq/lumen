@@ -193,6 +193,11 @@ def test_without_the_speech_engine_voice_says_how_to_install_it(env, local, monk
     assert event["type"] == "error" and event["code"] == "voice_unavailable"
     assert "uv sync --extra voice" in event["hint"]
     assert not (env.data / "models" / "piper").exists()  # nothing was downloaded
+    assert local.get("/api/status").json()["voice"] is False  # so the app doesn't offer it
+
+
+def test_the_status_says_voice_can_run(env, local, voice):
+    assert local.get("/api/status").json()["voice"] is True
 
 
 def test_room_noise_and_a_silent_microphone_are_not_speech(env, local, model, real_voice_detector):

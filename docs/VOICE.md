@@ -98,7 +98,9 @@ to load: Phase 2 should open the voice connection before the user speaks.
 - [x] Errors: no microphone or permission, server without voice support, laptop not reachable,
       connection lost; opening another chat turns voice off; turning voice off while it is still
       connecting leaves nothing open
-- [x] Tests with a fake microphone, speaker and connection (13, `app/test/voice_test.dart`)
+- [x] The mic is shown only when the server can speak (`voice` in `/api/status`): the packages
+      leave Piper out until the licensing decision, so packaged installs don't offer voice yet
+- [x] Tests with a fake microphone, speaker and connection (14, `app/test/voice_test.dart`)
 
 The settings screen for voice moved to Phase 3: the settings exist on the server, and the app
 uses their defaults until then.

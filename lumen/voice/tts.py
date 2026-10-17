@@ -3,6 +3,7 @@ the voice is downloaded into the data folder the first time it is used.
 
 Piper is GPL-3.0 and an optional extra (`uv sync --extra voice`): see docs/VOICE.md."""
 
+import importlib.util
 import logging
 import threading
 import urllib.request
@@ -24,6 +25,12 @@ class Speaker(Protocol):
     def speak(self, text: str) -> Iterator[bytes]:
         """PCM16 mono audio for the text, in pieces as they are made."""
         ...
+
+
+def available() -> bool:
+    """Whether the speech engine is installed (the voice itself may still need downloading).
+    The packages leave it out (GPL), so the app hides voice there."""
+    return importlib.util.find_spec("piper") is not None
 
 
 def _require_piper() -> None:

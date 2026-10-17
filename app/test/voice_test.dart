@@ -343,4 +343,12 @@ void main() {
     await settle(tester);
     expect(rig.out.bytes, 3000);
   });
+
+  testWidgets('a laptop without the speech engine offers no microphone', (tester) async {
+    final rig = await showChat(tester);
+    rig.state.status = {...?rig.state.status, 'voice': false};
+    rig.state.select(null); // rebuild
+    await tester.pump();
+    expect(find.byTooltip('Talk to Lumen'), findsNothing);
+  });
 }

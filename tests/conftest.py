@@ -473,6 +473,7 @@ def voice(env, monkeypatch) -> FakeVoice:
     monkeypatch.setattr(stt, "load", lambda: None)
     monkeypatch.setattr(stt, "transcribe", fake.transcribe)
     monkeypatch.setattr(tts, "load", lambda: fake)
+    monkeypatch.setattr(tts, "available", lambda: True)
     monkeypatch.setattr(vad, "SileroStream", LoudnessDetector)
     return fake
 
