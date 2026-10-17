@@ -11,6 +11,7 @@ It runs on your laptop with a local model (Ollama) by default. Nothing leaves th
 - **Searches everything you index**: file names, the text of PDFs, Word, Excel and PowerPoint files, OpenDocument files, e-books (EPUB), notes and code, descriptions of photos and scanned pages, and transcripts of video and audio with timestamps ("play it at 10:05").
 - **Finds pictures by what they show**, and finds images that look like a given photo (drop one on the chat).
 - **Answers questions about a file** by reading it, and opens files or shows them in their folder.
+- **Notes, to-dos and reminders**: "note: the plumber is Ahmed, 0300 1234567", "add milk to my shopping list", "remind me every Monday at 9 to pay the rent", by typing or talking ([Notes, to-dos and reminders](#notes-to-dos-and-reminders)).
 - **Talk to it**: ask out loud and hear the answer, in the same chat as typing. Speech is turned into text and back on your laptop ([Voice chat](#voice-chat)).
 - **Organises files with your approval**: create folders and files, copy, move and rename. Every change asks first and can be undone. It cannot delete anything.
 - **Skips what code projects ignore**: build output, caches and logs listed in their `.gitignore` files (a switch in Settings → Sync).
@@ -92,6 +93,16 @@ More in [app/README.md](app/README.md), including the phone app and pairing.
 |---|---|
 | ![Models](app/test/screens/desktop_models.png) | ![Sync](app/test/screens/desktop_index_running.png) |
 
+## Notes, to-dos and reminders
+
+Say or type it in chat, or use **Notes & to-dos** in the sidebar (on the phone: in the menu).
+
+- **Notes** are Markdown files in a `Lumen Notes` folder inside your first indexed folder (change it in Settings → General). They are your files: open them in any editor, and Lumen's search finds them. "Note: …", "write down that …" or "remember that …" saves one; with the title of an existing note, the text is added to it. Every change can be undone, and a deleted note goes to the Trash.
+- **To-dos** live in lists (To-do, Shopping, Work, …) with a priority and a due time: "add milk to my shopping list", "I need to call the bank tomorrow at 10, it's urgent", "what do I have to do?", "done with the milk".
+- **Reminders** go off as a notification on the laptop (even with the app closed, while `lumen serve` runs), as a banner in the app with Done and Snooze, and out loud when voice chat is on. One-off or repeating: "in 20 minutes", "tomorrow at 5pm", "tonight", "on 3 November at 10", "every Monday at 9", "every weekday at 7am", "every month on the 1st". A reminder missed while the laptop was off goes off once when Lumen starts again.
+
+Times are worked out by Lumen from your own words, not by the model; when it can't tell when you mean, it asks instead of guessing. Desktop notifications need `notify-send` (`libnotify-bin`, already on Ubuntu and Pop!_OS). The design and how well the small model picks these up are in [docs/PLANNER.md](docs/PLANNER.md).
+
 ## Voice chat
 
 Click the microphone in the message box and ask. Lumen hears where your question ends, answers in the chat as if you had typed it (search results, previews and all), and reads the answer out. Typed and spoken messages mix freely in one chat.
@@ -134,6 +145,8 @@ Most settings live in the app (Settings → General / Models / Sync). Environmen
 | `LUMEN_MODEL` | `qwen3.5:2b` | Chat model on Ollama |
 | `LUMEN_CAPTION_MODEL` | same as `LUMEN_MODEL` | Model that describes images and video |
 | `LUMEN_WHISPER_MODEL` | `small` | Speech-to-text size for indexing video and audio |
+| `LUMEN_NOTES` | `Lumen Notes` in the first indexed folder | Where notes are saved (inside an indexed folder) |
+| `LUMEN_REMINDER_NOTIFY`, `LUMEN_REMINDER_SPEAK` | `1` | Reminders as desktop notifications / said aloud while voice chat is on |
 | `LUMEN_VOICE_STT_MODEL` | `tiny` | Speech-to-text size for voice chat (fast) |
 | `LUMEN_VOICE` | `en_US-lessac-medium` | Piper voice for voice chat (downloaded on first use) |
 | `LUMEN_POWER` | `auto` | `auto` (AI work only when plugged in), `saver` (no models), `performance` |
@@ -189,6 +202,7 @@ The server (`lumen/`) is a package per area. Each one exposes a few functions or
 | `search/` | full-text search, passages for questions, visual search, hybrid image search | |
 | `providers/` | Ollama and OpenAI-compatible backends behind one interface, the provider registry, model checks, Ollama downloads | Adapter |
 | `agent/` | the LangGraph agent, its prompts, a chat session, and its tools by area | |
+| `planner/` | notes (Markdown files), to-do lists and reminders (planner.db), plain-words times, reminders going off | |
 | `voice/` | voice chat's speech: voice detection and end of a question, speech to text, text to speech, answers made speakable | Strategy (speech backend) |
 | `fileops/` | file changes: plan, approve, apply, undo (journal) | Command |
 | `api/` | `create_app()`: routes per area, request and response models, services per app (indexer, chats, pairing), auth, one error shape | Factory, dependency injection |

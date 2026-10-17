@@ -42,6 +42,7 @@ class _DesktopHomeState extends State<DesktopHome> {
       await Future.delayed(const Duration(milliseconds: 500));
       ok = await state.connect();
     }
+    if (ok) state.watchReminders(); // the banner for reminders that go off
     if (mounted) setState(() => connected = ok);
   }
 
@@ -59,7 +60,10 @@ class _DesktopHomeState extends State<DesktopHome> {
       );
       for (var i = 0; i < 20 && mounted; i++) {
         await Future.delayed(const Duration(milliseconds: 750));
-        if (await state.connect()) break;
+        if (await state.connect()) {
+          state.watchReminders();
+          break;
+        }
       }
     } on Object catch (e, st) {
       logUnexpected('start server', e, st);

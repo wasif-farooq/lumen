@@ -137,6 +137,9 @@ def env(tmp_path, monkeypatch) -> Env:
         "agent_model": "qwen3.5:2b",
         "caption_model": "qwen3.5:2b",
         "whisper_model": "small",
+        "notes_dir": "",
+        "reminder_notify": True,
+        "reminder_speak": True,
     }.items():
         monkeypatch.setattr(settings, name, value)
     monkeypatch.setattr(settings, "providers", registry.defaults())
@@ -498,3 +501,37 @@ def pcm(seconds: float, loud: bool) -> bytes:
     else:
         wave = np.random.default_rng(n).normal(0, 0.003, n)
     return (wave * 32767).astype("<i2").tobytes()
+
+
+# ---------- notes, to-dos and reminders ----------
+
+from lumen.agent.tools.planner import wanted as wants_planner  # noqa: E402,F401
+from lumen.planner.times import parse_when  # noqa: E402,F401  (tests import it from here)
+
+
+class Reminders:
+    """The reminder thread, run by hand: set `.now` (seconds), call `.tick()`; desktop
+    notifications land in `.shown`, spoken ones in `.said`."""
+
+    def __init__(self, scheduler):
+        self.scheduler = scheduler
+        self.now = time.time()
+        self.shown: list[str] = []
+        self.said: list[str] = []
+        scheduler.now = lambda: self.now
+        scheduler.notify = lambda title, body: self.shown.append(body)
+        scheduler.speakers.append(self.said.append)
+
+    def tick(self) -> list[dict]:
+        return self.scheduler.tick()
+
+
+@pytest.fixture
+def reminders(env) -> Reminders:
+    return Reminders(env.app.state.services.reminders)
+
+
+@pytest.fixture
+def notes_folder(env) -> Path:
+    """Where notes are saved by default: "Lumen Notes" in the first indexed folder."""
+    return env.documents.resolve() / "Lumen Notes"

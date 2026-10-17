@@ -66,6 +66,10 @@ class SettingsOut(Out):
     transcripts: bool
     visual: bool
     gitignore: bool  # skip what .gitignore files in the indexed folders leave out
+    notes_dir: str  # "" = the default
+    notes_folder: str  # where notes are saved now
+    reminder_notify: bool
+    reminder_speak: bool
 
 
 class Diagnostics(Out):

@@ -213,3 +213,29 @@ def test_room_noise_and_a_silent_microphone_are_not_speech(env, local, model, re
         ws.send_text(json.dumps({"type": "nonsense"}))  # answered at once, so the test knows the server caught up
         assert json.loads(ws.receive_text())["code"] == "invalid_input"
     assert real_voice_detector.transcriptions == 0  # nothing was taken for speech
+
+
+def test_a_reminder_that_goes_off_is_said_in_an_open_voice_chat(env, local, model, voice, reminders):
+    import time
+
+    r = local.post("/api/reminders", json={"text": "take your medicine", "at": time.time() + 60}).json()
+    with local.websocket_connect("/api/voice") as ws:
+        ready(ws)
+        reminders.now = r["at"] + 1
+        reminders.tick()
+        events, audio = until_turn_done(ws)
+    assert {"type": "reminder", "text": "Reminder: take your medicine"} in events
+    assert "speaking" in types(events) and audio > 0
+    assert any("take your medicine" in sentence for sentence in voice.spoken)
+
+
+def test_a_spoken_remind_me_sets_a_reminder(env, local, model, voice):
+    voice.heard = ["remind me in ten minutes to stretch"]
+    model.script = [tool_call("set_reminder", text="stretch", when="in ten minutes"), AIMessage(content="OK.")]
+    with local.websocket_connect("/api/voice") as ws:
+        ready(ws)
+        say(ws, pcm(0.6, loud=True), pcm(1.0, loud=False))
+        events, _ = until_turn_done(ws)
+    assert "reminder_set" in types(events)
+    [r] = local.get("/api/reminders").json()
+    assert r["text"] == "stretch"

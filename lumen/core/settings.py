@@ -71,6 +71,11 @@ class Settings:
     threads: int = field(default_factory=lambda: int(env("THREADS", "4")))
     cpu_only: bool = field(default_factory=lambda: _flag("CPU_ONLY", False))  # keep the GPU asleep
 
+    # Notes, to-dos and reminders: notes are Markdown files ("" = "Lumen Notes" in the first indexed folder)
+    notes_dir: str = field(default_factory=lambda: env("NOTES", ""))
+    reminder_notify: bool = field(default_factory=lambda: _flag("REMINDER_NOTIFY", True))  # desktop notification
+    reminder_speak: bool = field(default_factory=lambda: _flag("REMINDER_SPEAK", True))  # said while voice is on
+
     # File changes after approval; Docker test mode sets LUMEN_WRITE=0
     write_enabled: bool = field(default_factory=lambda: _flag("WRITE", True))
     # "xdg" opens files on the desktop; "print" only reports (Docker has no desktop)

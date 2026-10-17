@@ -133,3 +133,15 @@ def test_the_agent_has_no_way_to_delete(env):
     names = agent_tool_names()
     assert names  # sanity
     assert not [n for n in names if any(w in n for w in ("delete", "remove", "trash", "unlink"))]
+
+
+def test_a_model_that_keeps_searching_is_made_to_answer(indexed, local, model):
+    """Small models retry with new synonyms when a search finds nothing, until the step limit ends the
+    turn with an error; after a few tool steps they must answer instead."""
+    model.script = [tool_call("search_files", query=f"word{i}") for i in range(12)] + [
+        AIMessage(content="I couldn't find anything about that.")
+    ]
+    chat = new_chat(local)
+    events = ask(local, chat, "I need to renew my car insurance")
+    assert types(events).count("tool_call") == 5
+    assert "answer" in types(events) and "error" not in types(events)

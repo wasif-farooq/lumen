@@ -9,6 +9,7 @@ import '../../shared/theme.dart';
 import '../../shared/widgets/common.dart';
 import '../chat/chat_view.dart';
 import '../chat/composer.dart';
+import '../planner/planner_screen.dart';
 import '../preview/file_details.dart';
 
 /// Phone: the chat with the paired laptop, chats in the drawer, results open in a sheet.
@@ -111,6 +112,19 @@ class _MobileChatState extends State<MobileChat> {
                           },
                         ),
                     ]),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.sticky_note_2_outlined),
+                    title: const Text('Notes & to-dos'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      unawaited(Navigator.push(context, MaterialPageRoute<void>(
+                        builder: (_) => Scaffold(
+                          appBar: AppBar(title: const Text('Notes & to-dos')),
+                          body: PlannerScreen(state: s, compact: true),
+                        ),
+                      )));
+                    },
                   ),
                   ListTile(leading: const Icon(Icons.link_off), title: Text('Unpair from ${s.host}'), onTap: widget.onUnpair),
                 ]),

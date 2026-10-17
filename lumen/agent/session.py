@@ -40,6 +40,7 @@ class Session:
         """Yield (kind, payload) events: ("tool_call", (name, args)), ("tool_result", str), ("answer", str),
         structured ("ui", dict) events from tools (search hits, opened files) for app UIs, and
         ("approval", plan) when a change waits for the user: answer it with resume()."""
+        self.state["user_text"] = text  # tools check the model's copy of the user's words against it
         yield from self._run({"messages": [HumanMessage(text)]})
 
     def resume(self, approved: bool) -> Iterator[AgentEvent]:

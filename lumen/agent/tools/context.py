@@ -15,7 +15,8 @@ class ToolContext:
     def __init__(
         self, emit: Callable[[dict], None] | None = None, app: bool = False, state: dict | None = None
     ) -> None:
-        self.last_results: list[str] = (state if state is not None else {}).setdefault("last_results", [])
+        self.state = state if state is not None else {}  # kept for the whole chat (shared with the API)
+        self.last_results: list[str] = self.state.setdefault("last_results", [])
         self.emit = emit or (lambda event: None)
         self.app = app
 

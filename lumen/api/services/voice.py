@@ -32,12 +32,19 @@ class VoiceCall:
     def __init__(self, ws: WebSocket, chats: Chats, chat_id: str, on_new_files: Callable[[], None]) -> None:
         self.ws, self.chats, self.chat_id, self.on_new_files = ws, chats, chat_id, on_new_files
         self.endpointer = Endpointer()
-        self.work: asyncio.Queue[np.ndarray | bool | None] = asyncio.Queue()  # utterance, approval, or end
+        # an utterance, an approval, a reminder to say (str), or the end (None)
+        self.work: asyncio.Queue[np.ndarray | bool | str | None] = asyncio.Queue()
         self.busy = False
         self.interrupted = asyncio.Event()
         self.speaker: tts.Speaker | None = None
+        self.loop = asyncio.get_running_loop()  # made in the WebSocket handler; announce() needs it
 
     # ---------- the connection ----------
+
+    def announce(self, text: str) -> None:
+        """Say something unasked (a reminder going off), from any thread: it waits for the
+        current turn to finish, so it never cuts into an answer."""
+        self.loop.call_soon_threadsafe(self.work.put_nowait, text)
 
     async def run(self) -> None:
         if not await self._prepare():
@@ -113,9 +120,12 @@ class VoiceCall:
 
     # ---------- a turn ----------
 
-    async def _turn(self, item: np.ndarray | bool) -> None:
+    async def _turn(self, item: np.ndarray | bool | str) -> None:
         if isinstance(item, bool):
             return await self._answer_approval(item)
+        if isinstance(item, str):  # a reminder
+            await self._send({"type": "reminder", "text": item})
+            return await self._say(item)
         await self._send({"type": "transcribing"})
         text = await asyncio.to_thread(stt.transcribe, item)
         if not text:

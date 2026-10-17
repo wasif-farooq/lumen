@@ -24,4 +24,9 @@ async def voice(ws: WebSocket, chat_id: str | None = None) -> None:
         await ws.close(code=4404, reason="No such chat")
         return
     await ws.accept()
-    await VoiceCall(ws, svc.chats, chat_id, svc.indexer.start).run()
+    call = VoiceCall(ws, svc.chats, chat_id, svc.indexer.start)
+    svc.reminders.speakers.append(call.announce)  # reminders are said while voice is on
+    try:
+        await call.run()
+    finally:
+        svc.reminders.speakers.remove(call.announce)

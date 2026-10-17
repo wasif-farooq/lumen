@@ -57,6 +57,13 @@ class Sidebar extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         _NavButton(
+          icon: Icons.sticky_note_2_outlined,
+          label: 'Notes & to-dos',
+          active: page == 'planner',
+          onTap: () => onPage(page == 'planner' ? 'chat' : 'planner'),
+        ),
+        const SizedBox(height: 8),
+        _NavButton(
           icon: Icons.settings_outlined,
           label: 'Settings',
           active: page == 'settings' || page == 'models',
