@@ -557,3 +557,11 @@ def commands(monkeypatch):
 def notes_folder(env) -> Path:
     """Where notes are saved by default: "Lumen Notes" in the first indexed folder."""
     return env.documents.resolve() / "Lumen Notes"
+
+
+def sync_mail(env) -> int:
+    """Read every connected mailbox now (the server does this in a background thread); mails added."""
+    from lumen.mail import accounts
+
+    svc = env.app.state.services
+    return sum(svc.mail.sync_account(a) for a in accounts.all_accounts())

@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 
 from ... import planner
+from ...mail.sync import MailSync
 from ...planner.scheduler import ReminderScheduler
 from .chats import Chats
 from .indexer import Indexer
@@ -15,5 +16,6 @@ class Services:
     chats: Chats = field(default_factory=Chats)
     pairing: Pairing = field(default_factory=Pairing)
     reminders: ReminderScheduler = field(default_factory=lambda: ReminderScheduler(planner.store))
+    mail: MailSync = field(default_factory=MailSync)
     lan: bool = False  # accepting paired phones on the local network
     port: int = 8765

@@ -6,6 +6,7 @@ from langchain_core.tools import tool
 
 from ...core.filetypes import MEDIA_EXTS
 from ...indexing.extract import extract_text
+from ...mail import search as mail_search
 from ...search import passages
 from ...search import text as text_search
 from ...storage import catalog, db
@@ -31,7 +32,7 @@ def build(ctx: ToolContext) -> dict:
         min_minutes: float = 0,
         max_minutes: float = 0,
     ) -> str:
-        """Full-text search over the user's files: names, folders, text inside documents,
+        """Full-text search over the user's files and emails: names, folders, text inside documents,
         AI descriptions of images/videos and what is said in videos/audio.
 
         Args:
@@ -45,7 +46,9 @@ def build(ctx: ToolContext) -> dict:
             max_minutes: ONLY if the user asks about length ("shorter than 5 minutes"); otherwise leave 0.
         """
         limit = min(max(limit, 1), MAX_RESULTS)
-        hits = text_search.search(query, ext, modified_after, modified_before, folder, limit, min_minutes, max_minutes)
+        hits = text_search.search_all(
+            query, ext, modified_after, modified_before, folder, limit, min_minutes, max_minutes
+        )
         last_results[:] = [h.path for h in hits]
         emit({"type": "results", "hits": [h.to_dict() for h in hits]})
         if not hits:
@@ -70,14 +73,17 @@ def build(ctx: ToolContext) -> dict:
         and you get the parts of the file most relevant to it (plus the beginning).
 
         Args:
-            target: full file path, or a result number from the last search (e.g. "1").
+            target: full file path, a mail ("mail:12"), or a result number from the last search (e.g. "1").
             question: what the user wants to know, e.g. "where did I work in 2014".
             max_chars: how much text to return (default 4000).
         """
-        path = resolve(target)
-        ext = path.suffix.lower().lstrip(".")
         # Small models sometimes ask for 500 characters and miss the answer
         budget = min(max(max_chars, READ_MIN_CHARS), READ_MAX_CHARS)
+        mail = mail_search.target(target, last_results)
+        if mail:
+            return _read_mail(mail, question, budget)
+        path = resolve(target)
+        ext = path.suffix.lower().lstrip(".")
         text = extract_text(path, ext, path.stat().st_size)
         what = ""
         if not text.strip():
@@ -104,6 +110,16 @@ def build(ctx: ToolContext) -> dict:
             f"--- {path}{what}: showing the first {budget:,} of {len(text):,} characters. The rest was NOT read: "
             f"to answer a question, call read_file again with question=..., or use find_in_files. ---\n{text[:budget]}"
         )
+
+    def _read_mail(path: str, question: str, budget: int) -> str:
+        head, text = mail_search.as_text(path)
+        if len(text) <= budget:
+            return f"--- {head}: complete ---\n{text}"
+        if question.strip():
+            parts, total = passages.best_parts(text, question, budget)
+            body = "\n[...]\n".join(f"[part {i + 1}/{total}]\n{p}" for i, p in parts)
+            return f"--- {head}: the parts most relevant to the question; other parts were NOT read ---\n{body}"
+        return f"--- {head}: the first {budget:,} of {len(text):,} characters ---\n{text[:budget]}"
 
     def _other_files(question: str, skip: Path) -> str:
         conn = db.connect()

@@ -11,7 +11,7 @@ from fastapi import FastAPI
 
 from ..core.limits import DEFAULT_PORT
 from . import errors
-from .routes import chats, files, images, indexing, pairing, planner, providers, status, view, voice
+from .routes import chats, files, images, indexing, mail, pairing, planner, providers, status, view, voice
 from .services import Services
 
 
@@ -21,8 +21,10 @@ def create_app(lan: bool = False, port: int = DEFAULT_PORT) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         svc.reminders.start()
+        svc.mail.start()
         yield
         svc.reminders.stop()
+        svc.mail.stop()
         # The indexer runs in its own process group: end it with the server, so nothing keeps
         # running from an app bundle (e.g. an AppImage) after the app is closed.
         svc.indexer.stop()
@@ -30,6 +32,6 @@ def create_app(lan: bool = False, port: int = DEFAULT_PORT) -> FastAPI:
     app = FastAPI(title="Lumen", lifespan=lifespan)
     app.state.services = svc
     errors.install(app)
-    for module in (chats, images, files, status, indexing, providers, pairing, voice, planner, view):
+    for module in (chats, images, files, status, indexing, providers, pairing, voice, planner, view, mail):
         app.include_router(module.router)
     return app

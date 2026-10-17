@@ -111,3 +111,13 @@ class ReminderChange(BaseModel):
 
 class Snooze(BaseModel):
     minutes: int = 10
+
+
+class MailAccountIn(BaseModel):
+    email: str
+    password: str
+    host: str = ""  # empty: guessed from the address
+    port: int = 0
+    security: str = ""
+    user: str = ""  # empty: the address
+    since_days: int = 365  # how far back to index

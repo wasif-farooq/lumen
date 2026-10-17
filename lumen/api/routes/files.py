@@ -33,7 +33,7 @@ def search(
     min_minutes: float = 0,
     max_minutes: float = 0,
 ) -> list[HitOut]:
-    hits = text_search.search(q, ext, after, before, folder, min(max(limit, 1), 100), min_minutes, max_minutes)
+    hits = text_search.search_all(q, ext, after, before, folder, min(max(limit, 1), 100), min_minutes, max_minutes)
     return [HitOut.model_validate(h.to_dict()) for h in hits]
 
 
