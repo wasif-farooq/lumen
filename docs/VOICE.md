@@ -110,5 +110,5 @@ uses their defaults until then.
 - [ ] Licensing decision (above), then packaging: voice extra in the bundle or a separate download
 - [ ] First-use download of the voice with progress in the app
 - [ ] Settings → General: voice on/off, speech model size, voice
-- [ ] README: voice chat, privacy (audio never leaves the laptop with local models)
+- [x] README: voice chat, privacy (audio never leaves the laptop with local models)
 - [ ] Real-device test on a phone; latency check against the target

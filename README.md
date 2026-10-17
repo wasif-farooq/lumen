@@ -11,6 +11,7 @@ It runs on your laptop with a local model (Ollama) by default. Nothing leaves th
 - **Searches everything you index**: file names, the text of PDFs, Word, Excel and PowerPoint files, OpenDocument files, e-books (EPUB), notes and code, descriptions of photos and scanned pages, and transcripts of video and audio with timestamps ("play it at 10:05").
 - **Finds pictures by what they show**, and finds images that look like a given photo (drop one on the chat).
 - **Answers questions about a file** by reading it, and opens files or shows them in their folder.
+- **Talk to it**: ask out loud and hear the answer, in the same chat as typing. Speech is turned into text and back on your laptop ([Voice chat](#voice-chat)).
 - **Organises files with your approval**: create folders and files, copy, move and rename. Every change asks first and can be undone. It cannot delete anything.
 - **Skips what code projects ignore**: build output, caches and logs listed in their `.gitignore` files (a switch in Settings → Sync).
 - **Indexes quietly**: low CPU and disk priority, and in Auto mode the AI work only runs while plugged in. Pause, resume or stop a run any time, and see live progress.
@@ -20,9 +21,10 @@ It runs on your laptop with a local model (Ollama) by default. Nothing leaves th
 
 ```
 Flutter app (desktop / phone)
-        │  HTTP
+        │  HTTP, and a WebSocket for voice (microphone audio in, spoken answer out)
         ▼
 lumen serve ── chat agent (LangGraph + tools) ── model provider (Ollama or OpenAI-compatible)
+        │      voice: voice detection (Silero) → Whisper → the same agent → Piper speech
         │
         └── lumen index (separate low-priority process)
               files → text (PDF, Word, Excel, PowerPoint, OpenDocument, EPUB, text/code),
@@ -42,6 +44,8 @@ Download the `.deb` or the AppImage from [Releases](https://github.com/wasif-far
 ```bash
 sudo apt install ./lumen_*_amd64.deb      # then start "Lumen" from the menu, or: lumen-app
 ```
+
+Voice chat isn't in the packages yet (see [Voice chat](#voice-chat)); run from source to use it.
 
 ## Quick start (from source)
 
@@ -88,6 +92,25 @@ More in [app/README.md](app/README.md), including the phone app and pairing.
 |---|---|
 | ![Models](app/test/screens/desktop_models.png) | ![Sync](app/test/screens/desktop_index_running.png) |
 
+## Voice chat
+
+Click the microphone in the message box and ask. Lumen hears where your question ends, answers in the chat as if you had typed it (search results, previews and all), and reads the answer out. Typed and spoken messages mix freely in one chat.
+
+- **Hands-free** (the default): it listens all the time and notices when you stop talking. **Push to talk**: hold a button while you speak. Switch with the ⚙ on the voice bar.
+- **Stop** cuts the answer short. While it answers it doesn't listen, so its own voice from the speakers isn't taken for a question.
+- **Changes** to your files still ask first: say "yes" or "no", or click the buttons.
+- **On your laptop**: the voice detector (Silero), speech to text (Whisper, CPU) and speech (Piper, CPU) all run locally. The only download is the voice itself, from Hugging Face the first time voice is turned on (about 60 MB). With a local chat model, your audio and questions never leave the machine.
+- **Speed** on a laptop with a small GPU (warm): the text of your question 0.5 s after you stop, the first words of the answer about 1.5 s after, a full answer with a search in 2–5 s. The chat model is loaded when voice is turned on, so the first question doesn't wait for it.
+
+**Turn it on** (from source): the speech engine, Piper, is GPL-3.0 while Lumen is MIT, so it is an optional extra and the `.deb` / AppImage leave it out for now. The app only shows the microphone when the server has it.
+
+```bash
+uv sync --extra voice
+uv run lumen serve
+```
+
+On Linux the microphone is recorded with `parecord` (PulseAudio or PipeWire). Settings: `LUMEN_VOICE` picks the [Piper voice](https://huggingface.co/rhasspy/piper-voices) and `LUMEN_VOICE_STT_MODEL` the Whisper size for voice (below). The protocol, design and what's next are in [docs/VOICE.md](docs/VOICE.md).
+
 ## Models and providers
 
 In **Settings → Models** you choose which model does each job:
@@ -110,7 +133,9 @@ Most settings live in the app (Settings → General / Models / Sync). Environmen
 | `LUMEN_DATA` | `~/.local/share/lumen` | Where the index, chats and settings live |
 | `LUMEN_MODEL` | `qwen3.5:2b` | Chat model on Ollama |
 | `LUMEN_CAPTION_MODEL` | same as `LUMEN_MODEL` | Model that describes images and video |
-| `LUMEN_WHISPER_MODEL` | `small` | Speech-to-text size |
+| `LUMEN_WHISPER_MODEL` | `small` | Speech-to-text size for indexing video and audio |
+| `LUMEN_VOICE_STT_MODEL` | `tiny` | Speech-to-text size for voice chat (fast) |
+| `LUMEN_VOICE` | `en_US-lessac-medium` | Piper voice for voice chat (downloaded on first use) |
 | `LUMEN_POWER` | `auto` | `auto` (AI work only when plugged in), `saver` (no models), `performance` |
 | `LUMEN_CPU_ONLY` | `0` | `1` keeps every model on the CPU |
 | `LUMEN_THREADS` | `4` | CPU threads for indexing |
@@ -164,6 +189,7 @@ The server (`lumen/`) is a package per area. Each one exposes a few functions or
 | `search/` | full-text search, passages for questions, visual search, hybrid image search | |
 | `providers/` | Ollama and OpenAI-compatible backends behind one interface, the provider registry, model checks, Ollama downloads | Adapter |
 | `agent/` | the LangGraph agent, its prompts, a chat session, and its tools by area | |
+| `voice/` | voice chat's speech: voice detection and end of a question, speech to text, text to speech, answers made speakable | Strategy (speech backend) |
 | `fileops/` | file changes: plan, approve, apply, undo (journal) | Command |
 | `api/` | `create_app()`: routes per area, request and response models, services per app (indexer, chats, pairing), auth, one error shape | Factory, dependency injection |
 | `cli/` | one module per `lumen` command | |
@@ -173,7 +199,8 @@ Errors are raised as `core.errors` types (`NotFound`, `InvalidInput`, `Conflict`
 The app (`app/lib/`) has the same shape:
 
 - `core/`: `api/` (an `ApiClient` with timeouts and error parsing, one mixin per area), `models/`, `errors/` (`runGuarded`, the reporter for uncaught errors), `logging/`, and `AppState` (the connection to one laptop, with the chats).
-- `features/`: chat, preview, sync, models, settings, pairing and the desktop/phone shells. Each has a `ChangeNotifier` controller, an `*_actions.dart` for dialogs and messages, and widgets that only display.
+- `core/audio/`: the microphone and streamed playback, behind small interfaces so tests use fakes.
+- `features/`: chat, voice, preview, sync, models, settings, pairing and the desktop/phone shells. Each has a `ChangeNotifier` controller, an `*_actions.dart` for dialogs and messages, and widgets that only display.
 - `shared/`: the theme and reusable widgets, including the error views (snackbar with Details, a card with Retry).
 
 ## Contributing
