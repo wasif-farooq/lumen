@@ -52,7 +52,7 @@ Sorting mail into folders and to-dos/reminders from mail were measured first and
 - [x] Tests and screenshots (made-up mail)
 
 ### 4. Finish
-- [ ] README; full checks; try it with your mailbox; merge and push (v0.6.0) when asked
+- [x] README; full checks; merged and pushed (v0.6.0). Still to do: Google and Microsoft sign-in (step 2)
 
 ## Measured: sorting and to-dos (left for later)
 
