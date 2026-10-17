@@ -53,6 +53,9 @@ class Settings:
     vision_provider: str = "ollama"
     caption_model: str = ""  # empty: same as the chat model (no GPU swap)
     whisper_model: str = field(default_factory=lambda: env("WHISPER_MODEL", "small"))
+    # Voice chat: a fast speech model (the one above transcribes videos while indexing) and a voice
+    voice_stt_model: str = field(default_factory=lambda: env("VOICE_STT_MODEL", "tiny"))
+    voice_tts_voice: str = field(default_factory=lambda: env("VOICE", "en_US-lessac-medium"))
     providers: dict = field(default_factory=dict)
     num_ctx: int = field(default_factory=lambda: int(env("NUM_CTX", "8192")))
 

@@ -51,6 +51,7 @@ class StatusOut(Out):
     models: ModelsOut
     lan: bool
     open_mode: str
+    voice: bool  # voice chat can run here (its speech engine is installed)
 
 
 class SettingsOut(Out):

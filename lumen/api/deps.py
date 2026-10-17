@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from fastapi import Depends, Request
+from starlette.requests import HTTPConnection
 
 from ..core import errors
 from .services import Services
@@ -12,19 +13,28 @@ def services(request: Request) -> Services:
     return request.app.state.services
 
 
-def is_local(request: Request) -> bool:
-    return request.client is not None and request.client.host in ("127.0.0.1", "::1", "localhost")
+def is_local(conn: HTTPConnection) -> bool:
+    return conn.client is not None and conn.client.host in ("127.0.0.1", "::1", "localhost")
 
 
-def auth(request: Request, svc: Services = Depends(services)) -> str:
-    """The laptop itself, or a paired phone (Authorization: Bearer <token>)."""
-    if is_local(request):
+def who(conn: HTTPConnection, svc: Services) -> str:
+    """The laptop itself ("local"), or the id of a paired phone; raises NotPaired otherwise.
+    Phones send `Authorization: Bearer <token>`; a WebSocket that can't set headers may use
+    `?token=` instead."""
+    if is_local(conn):
         return "local"
-    token = request.headers.get("authorization", "").removeprefix("Bearer ").strip()
+    token = conn.headers.get("authorization", "").removeprefix("Bearer ").strip()
+    if not token and conn.scope["type"] == "websocket":
+        token = conn.query_params.get("token", "")
     device = svc.pairing.device_for(token)
     if device is None:
         raise errors.NotPaired("Not paired")
     return device
+
+
+def auth(request: Request, svc: Services = Depends(services)) -> str:
+    """The laptop itself, or a paired phone (Authorization: Bearer <token>)."""
+    return who(request, svc)
 
 
 def local_only(request: Request) -> None:
