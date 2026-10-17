@@ -32,7 +32,7 @@ mixin ChatState on ChangeNotifier {
       events = [ChatEvent('error', {'text': 'Could not load this chat: ${e.message}'})];
     }
     final lastResults = events.where((e) => e.type == 'results' && e.hits.isNotEmpty).lastOrNull;
-    selected = lastResults?.hits.first;
+    selected = _firstFile(lastResults?.hits);
     notifyListeners();
   }
 
@@ -52,9 +52,12 @@ mixin ChatState on ChangeNotifier {
   }
 
   void select(Hit? hit) {
-    selected = hit;
+    selected = hit != null && hit.isMail ? null : hit;
     notifyListeners();
   }
+
+  /// The result shown in the preview panel: a file (a mail opens in the viewer instead).
+  static Hit? _firstFile(List<Hit>? hits) => hits?.where((h) => !h.isMail).firstOrNull;
 
   /// The change the agent is waiting on (Approve / Cancel), if any.
   ChatEvent? get pendingApproval {
@@ -140,7 +143,7 @@ mixin ChatState on ChangeNotifier {
         events.add(e);
       case 'results':
         events.add(e);
-        if (e.hits.isNotEmpty) selected = e.hits.first;
+        if (e.hits.isNotEmpty) selected = _firstFile(e.hits);
         working = 'Thinking…';
       default:
         events.add(e);
@@ -169,7 +172,7 @@ mixin ChatState on ChangeNotifier {
       }
       events = await api.events(chatId!);
       final last = events.where((e) => e.type == 'results').lastOrNull;
-      selected = (last == null || last.hits.isEmpty) ? selected : last.hits.first;
+      selected = (last == null || last.hits.isEmpty) ? selected : _firstFile(last.hits);
       chats = await api.chats();
     } on Object catch (e, st) {
       logUnexpected('find similar', e, st);

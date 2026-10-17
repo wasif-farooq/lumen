@@ -103,7 +103,7 @@ def get_mail(mail_id: int) -> MailOut:
     return MailOut.model_validate({**m, "path": f"{mail_search.PREFIX}{mail_id}", "text": m["body"] or ""})
 
 
-@router.get("/api/mail/messages/{mail_id}/attachments/{idx}")
+@router.post("/api/mail/messages/{mail_id}/attachments/{idx}")
 def open_attachment(mail_id: int, idx: int) -> dict:
     """Fetch an attachment from the mail server (read-only) into the cache and describe it for the
     viewer, which then shows it like a file (its "path")."""

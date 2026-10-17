@@ -47,9 +47,9 @@ Sorting mail into folders and to-dos/reminders from mail were measured first and
 - [ ] `docs/MAIL.md`: creating the client IDs (Google Cloud, Azure), the "In production" note
 
 ### 3. App
-- [ ] Settings → Mail: add an account (known providers filled in), status, Sync now, remove
-- [ ] Mail results in chat and search, the viewer's mail view, attachments
-- [ ] Tests and screenshots (made-up mail)
+- [x] Settings → Mail: add an account (known providers filled in), status, Sync now, remove
+- [x] Mail results in chat and search, the viewer's mail view, attachments (fetched when opened)
+- [x] Tests and screenshots (made-up mail)
 
 ### 4. Finish
 - [ ] README; full checks; try it with your mailbox; merge and push (v0.6.0) when asked

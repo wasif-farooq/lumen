@@ -97,7 +97,10 @@ class _ChatViewState extends State<ChatView> {
               api: s.api,
               compact: widget.compact,
               selected: !widget.compact && s.selected?.path == h.path,
-              onSelect: () => widget.onHitTap != null ? widget.onHitTap!(h) : s.select(h),
+              // a mail has no file details: it opens to be read
+              onSelect: () => h.isMail && widget.onView != null
+                  ? widget.onView!(hits, hits.indexOf(h))
+                  : (widget.onHitTap != null ? widget.onHitTap!(h) : s.select(h)),
               onOpen: widget.onOpen,
               onShow: () => widget.onShow(h),
               onSimilar: () => s.findSimilar(path: h.path),

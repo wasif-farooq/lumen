@@ -29,7 +29,7 @@ class _DesktopShellState extends State<DesktopShell> {
   bool dragging = false;
   (List<ViewTarget>, int)? viewing; // a file read in the app, in place of the chat
 
-  static const _settingsTabs = {'settings': 0, 'models': 1, 'index': 2};
+  static const _settingsTabs = {'settings': 0, 'models': 1, 'index': 2, 'mail': 3};
 
   static const _imageExts = {'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'heic'};
 
@@ -97,7 +97,7 @@ class _DesktopShellState extends State<DesktopShell> {
             Expanded(
               child: switch (page) {
                 'planner' => PlannerScreen(state: s),
-                'settings' || 'models' || 'index' => SettingsScreen(
+                'settings' || 'models' || 'index' || 'mail' => SettingsScreen(
                     state: s,
                     tab: _settingsTabs[page]!,
                     onTab: (i) => setState(() => page = _settingsTabs.entries.firstWhere((e) => e.value == i).key),

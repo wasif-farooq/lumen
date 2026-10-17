@@ -188,11 +188,13 @@ def test_a_wrong_password_is_said_at_once_and_nothing_is_saved(env, local, box):
 def test_a_mail_and_its_attachment_open_in_the_viewer(env, local, filled):
     [hit] = [h for h in search(local, "berth") if h["kind"] == "mail"]
     mail_id = hit["path"].removeprefix("mail:")
+    info = local.get("/api/view", params={"path": hit["path"]}).json()
+    assert info["kind"] == "mail" and info["name"] == "Harbour berth statement"
     mail = local.get(f"/api/mail/messages/{mail_id}").json()
     assert "120 EUR" in mail["text"] and mail["sender"] == "sam@example.org"
     assert [a["name"] for a in mail["attachments"]] == ["statement-oct.pdf"]
 
-    info = local.get(f"/api/mail/messages/{mail_id}/attachments/0").json()  # fetched from the server
+    info = local.post(f"/api/mail/messages/{mail_id}/attachments/0").json()  # fetched from the server
     assert info["kind"] == "pdf" and info["pages"] == 1
     page = local.get("/api/view/page", params={"path": info["path"], "page": 0, "w": 400})
     assert page.status_code == 200 and page.headers["content-type"] == "image/png"
@@ -212,7 +214,7 @@ def test_chat_finds_and_reads_a_mail(env, local, model, filled):
 
 def test_removing_a_mailbox_forgets_everything_lumen_kept(env, local, filled):
     [hit] = [h for h in search(local, "berth") if h["kind"] == "mail"]
-    local.get(f"/api/mail/messages/{hit['path'].removeprefix('mail:')}/attachments/0")
+    local.post(f"/api/mail/messages/{hit['path'].removeprefix('mail:')}/attachments/0")
     assert (env.data / "mail-cache" / filled["id"]).exists()
 
     assert local.delete(f"/api/mail/accounts/{filled['id']}").json() == {"deleted": filled["email"]}

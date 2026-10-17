@@ -9,6 +9,8 @@ from fastapi.responses import FileResponse, Response
 
 from ...core import errors
 from ...core.settings import settings
+from ...mail import search as mail_search
+from ...mail.store import mail_store
 from ...viewer import blocks, kinds, pdf, text
 from .. import thumbnails
 from ..deps import auth, checked_path
@@ -38,6 +40,11 @@ def viewable(path: str) -> Path:
 
 @router.get("/api/view")
 def describe(path: str) -> dict:
+    if mail_search.is_mail(path):  # shown from /api/mail/messages/{id}
+        m = mail_store().get(mail_search.mail_id(path))
+        if m is None:
+            raise errors.NotFound("That mail isn't indexed (its account was removed).")
+        return {"path": path, "name": m["subject"], "ext": "eml", "kind": "mail", "size": m["size"] or 0}
     return kinds.describe(viewable(path))
 
 
