@@ -58,9 +58,11 @@ from the Notes & to-dos screen.
 - [x] Tests and screenshots
 
 ### Ship
-- [ ] Try it by hand on the desktop (voice "remind me in 2 minutes ...": notification, banner, spoken)
-- [ ] `Recommends: libnotify-bin` in the .deb; notify-send from the AppImage
-- [ ] README
+- [x] Tried by hand on the desktop: reminders from chat and voice (notification, banner, spoken),
+      notes and to-dos from chat and from the screen
+- [x] Desktop notifications: notify-send, or gdbus when libnotify-bin isn't installed (as on
+      Pop!_OS/COSMIC); the .deb recommends libnotify-bin
+- [x] README
 
 ## Real model (qwen3.5:2b, `scripts/planner_bench.py`)
 
