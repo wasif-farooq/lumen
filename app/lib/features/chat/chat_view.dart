@@ -15,11 +15,12 @@ import 'welcome.dart';
 /// The conversation: user bubbles, result cards, answers and changes. What the agent is doing
 /// while it works is the status line above the message box, not part of the chat.
 class ChatView extends StatefulWidget {
-  const ChatView({super.key, required this.state, required this.onOpen, required this.onShow, this.compact = false, this.onHitTap});
+  const ChatView({super.key, required this.state, required this.onOpen, required this.onShow, this.compact = false, this.onHitTap, this.onView});
   final AppState state;
   final HitAction onOpen;
   final void Function(Hit hit) onShow;
   final void Function(Hit hit)? onHitTap; // mobile: open the result sheet
+  final void Function(List<Hit> hits, int index)? onView; // read a result in the app (previous/next: the others)
   final bool compact;
 
   @override
@@ -100,6 +101,7 @@ class _ChatViewState extends State<ChatView> {
               onOpen: widget.onOpen,
               onShow: () => widget.onShow(h),
               onSimilar: () => s.findSimilar(path: h.path),
+              onView: widget.onView == null || h.isMedia ? null : () => widget.onView!(hits, hits.indexOf(h)),
             ),
             const SizedBox(height: 8),
           ],

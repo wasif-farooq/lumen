@@ -19,6 +19,7 @@ class ResultCard extends StatelessWidget {
     required this.onOpen,
     required this.onShow,
     this.onSimilar,
+    this.onView,
     this.compact = false,
   });
 
@@ -27,6 +28,7 @@ class ResultCard extends StatelessWidget {
   final bool selected, compact;
   final VoidCallback onSelect, onShow;
   final VoidCallback? onSimilar;
+  final VoidCallback? onView; // read it in the app
   final HitAction onOpen;
 
   @override
@@ -74,9 +76,21 @@ class ResultCard extends StatelessWidget {
               const Icon(Icons.chevron_right, color: C.muted)
             else ...[
               const SizedBox(width: 10),
-              selected
-                  ? FilledButton(onPressed: () => onOpen(hit, start: hit.at ?? 0), style: _small, child: const Text('Open'))
-                  : OutlinedButton(onPressed: () => onOpen(hit, start: hit.at ?? 0), style: _smallOutline, child: const Text('Open')),
+              if (onView != null) ...[
+                selected
+                    ? FilledButton(onPressed: onView, style: _small, child: const Text('View'))
+                    : OutlinedButton(onPressed: onView, style: _smallOutline, child: const Text('View')),
+                const SizedBox(width: 6),
+                IconButton(
+                  tooltip: 'Open in default app',
+                  onPressed: () => onOpen(hit, start: hit.at ?? 0),
+                  style: IconButton.styleFrom(side: const BorderSide(color: C.line2), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                  icon: const Icon(Icons.open_in_new, size: 18, color: C.text2),
+                ),
+              ] else
+                selected
+                    ? FilledButton(onPressed: () => onOpen(hit, start: hit.at ?? 0), style: _small, child: const Text('Open'))
+                    : OutlinedButton(onPressed: () => onOpen(hit, start: hit.at ?? 0), style: _smallOutline, child: const Text('Open')),
               if (hit.kind == 'image' && onSimilar != null) ...[
                 const SizedBox(width: 6),
                 IconButton(

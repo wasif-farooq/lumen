@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/errors/run_guarded.dart';
 import '../../shared/theme.dart';
-import '../chat/message_parts.dart';
+import '../../shared/widgets/markdown.dart';
 import 'planner_controller.dart';
 import 'planner_parts.dart';
 
@@ -133,7 +133,7 @@ class _NoteEditorState extends State<_NoteEditor> {
         const SizedBox(height: 12),
         Expanded(
           child: preview
-              ? SingleChildScrollView(child: AnswerText(_text.text))
+              ? SingleChildScrollView(child: MarkdownView(_text.text))
               : TextField(
                   controller: _text,
                   onChanged: (_) => setState(() => changed = true),

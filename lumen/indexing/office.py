@@ -87,16 +87,28 @@ def xlsx(path: Path) -> Iterator[str]:
                 if el.tag == _tag("main", "c"):
                     kind, value = el.get("t"), el.find("main:v", NS)
                     if kind == "s" and value is not None and (value.text or "").isdigit():
-                        row.append(shared[int(value.text or 0)] if int(value.text or 0) < len(shared) else "")
+                        text = shared[int(value.text or 0)] if int(value.text or 0) < len(shared) else ""
                     elif kind == "inlineStr":
-                        row.append(_texts(el))
-                    elif value is not None:
-                        row.append(value.text or "")
+                        text = _texts(el)
+                    else:
+                        text = value.text or "" if value is not None else ""
+                    column = _column(el.get("r") or "")  # empty cells aren't in the file: keep columns aligned
+                    row.extend([""] * (max(column, len(row)) - len(row)))
+                    row.append(text)
                 elif el.tag == _tag("main", "row"):
                     if any(c.strip() for c in row):
                         yield " | ".join(row)
                     row = []
                     el.clear()
+
+
+def _column(ref: str) -> int:
+    """ "C5" -> 2 (0-based column); -1 when the cell has no reference."""
+    letters = "".join(ch for ch in ref if ch.isalpha()).upper()
+    n = 0
+    for ch in letters:
+        n = n * 26 + ord(ch) - 64
+    return n - 1
 
 
 # ---------- PowerPoint ----------

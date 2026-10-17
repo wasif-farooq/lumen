@@ -14,7 +14,7 @@ import 'file_details_parts.dart';
 
 /// Right-hand panel (desktop) / sheet body (mobile): preview, details, transcript, actions.
 class FileDetails extends StatefulWidget {
-  const FileDetails({super.key, required this.api, required this.hit, required this.onOpen, required this.onShow, required this.onAsk, this.onClose, this.onSimilar, this.mobile = false});
+  const FileDetails({super.key, required this.api, required this.hit, required this.onOpen, required this.onShow, required this.onAsk, this.onClose, this.onSimilar, this.onView, this.mobile = false});
   final Api api;
   final Hit hit;
   final HitAction onOpen;
@@ -22,6 +22,7 @@ class FileDetails extends StatefulWidget {
   final void Function(String question) onAsk;
   final VoidCallback? onClose;
   final VoidCallback? onSimilar; // images: find ones that look like this
+  final VoidCallback? onView; // read it in the app
   final bool mobile;
 
   @override
@@ -126,13 +127,22 @@ class _FileDetailsState extends State<FileDetails> {
               Highlighted(hit.snippet, style: const TextStyle(fontSize: 13, color: Color(0xFFC3CAD1), height: 1.6)),
             ],
             const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: () => widget.onOpen(hit, start: at ?? 0),
-              icon: Icon(media ? Icons.play_arrow_rounded : Icons.open_in_new, size: 18),
-              label: Text(media
-                  ? (at != null ? 'Play${widget.mobile ? ' on laptop' : ''} at ${clock(at)}' : 'Play${widget.mobile ? ' on laptop' : ''}')
-                  : (widget.mobile ? 'Open on laptop' : 'Open')),
-            ),
+            if (widget.onView != null && !media) ...[
+              FilledButton.icon(onPressed: widget.onView, icon: const Icon(Icons.visibility_outlined, size: 18), label: const Text('View')),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () => widget.onOpen(hit, start: at ?? 0),
+                icon: const Icon(Icons.open_in_new, size: 18),
+                label: Text(widget.mobile ? 'Open on laptop' : 'Open in default app'),
+              ),
+            ] else
+              FilledButton.icon(
+                onPressed: () => widget.onOpen(hit, start: at ?? 0),
+                icon: Icon(media ? Icons.play_arrow_rounded : Icons.open_in_new, size: 18),
+                label: Text(media
+                    ? (at != null ? 'Play${widget.mobile ? ' on laptop' : ''} at ${clock(at)}' : 'Play${widget.mobile ? ' on laptop' : ''}')
+                    : (widget.mobile ? 'Open on laptop' : 'Open')),
+              ),
             if (hit.kind == 'image' && widget.onSimilar != null) ...[
               const SizedBox(height: 8),
               OutlinedButton.icon(onPressed: widget.onSimilar, icon: const Icon(Icons.image_search, size: 18), label: const Text('Find similar images')),

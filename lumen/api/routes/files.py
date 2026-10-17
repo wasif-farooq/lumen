@@ -1,6 +1,5 @@
 """Files: search, details, previews, and opening them on the desktop."""
 
-import hashlib
 import os
 
 from fastapi import APIRouter, Depends
@@ -9,7 +8,6 @@ from fastapi.responses import Response
 from ...core import errors
 from ...core.filetypes import MEDIA_EXTS, RUNNABLE_EXTS, kind_of
 from ...core.formatting import fmt_time
-from ...core.settings import settings
 from ...fileops.access import launch
 from ...search import text as text_search
 from ...storage import catalog, db
@@ -82,17 +80,10 @@ def file_info(path: str, at: float | None = None) -> FileInfoOut:
 @router.get("/api/thumb")
 def thumb(path: str, w: int = 480, t: float | None = None) -> Response:
     p = checked_path(path)
-    w = max(THUMB_MIN, min(w, THUMB_MAX))
-    st = p.stat()
-    key = hashlib.sha1(f"{p}|{st.st_mtime}|{w}|{t}".encode()).hexdigest()
-    cache = settings.data_dir / "thumbs" / f"{key}.png"
-    if not cache.exists():
-        png = thumbnails.render(p, w, t)
-        if png is None:
-            raise errors.NotFound("No preview for this file type")
-        cache.parent.mkdir(parents=True, exist_ok=True)
-        cache.write_bytes(png)
-    return Response(cache.read_bytes(), media_type="image/png", headers={"Cache-Control": "max-age=86400"})
+    png = thumbnails.cached(p, max(THUMB_MIN, min(w, THUMB_MAX)), t)
+    if png is None:
+        raise errors.NotFound("No preview for this file type")
+    return Response(png, media_type="image/png", headers={"Cache-Control": "max-age=86400"})
 
 
 @router.post("/api/open")

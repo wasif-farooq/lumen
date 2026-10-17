@@ -11,6 +11,7 @@ import '../chat/chat_view.dart';
 import '../chat/composer.dart';
 import '../planner/planner_screen.dart';
 import '../preview/file_details.dart';
+import '../viewer/viewer_screen.dart';
 
 /// Phone: the chat with the paired laptop, chats in the drawer, results open in a sheet.
 class MobileChat extends StatefulWidget {
@@ -36,6 +37,30 @@ class _MobileChatState extends State<MobileChat> {
 
   Future<void> _show(Hit hit) =>
       runGuarded<String>(context, () => s.api.show(hit.path), failure: 'Could not show ${hit.name}', success: (_) => 'Folder opened on ${s.host}');
+
+  /// Read a file full screen.
+  void _view(List<Hit> hits, int index) {
+    unawaited(Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (route) => Scaffold(
+          body: SafeArea(
+            child: ViewerScreen(
+              api: s.api,
+              targets: [for (final h in hits) ViewTarget.fromHit(h)],
+              index: index,
+              compact: true,
+              actions: ViewerActions(
+                close: () => Navigator.pop(route),
+                openOnLaptop: (path, start) => unawaited(_open(hits.firstWhere((h) => h.path == path), start: start)),
+                showInFolder: (path) => unawaited(_show(hits.firstWhere((h) => h.path == path))),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ));
+  }
 
   void _sheet(Hit hit) {
     unawaited(showModalBottomSheet<void>(
@@ -63,6 +88,10 @@ class _MobileChatState extends State<MobileChat> {
           onSimilar: () {
             Navigator.pop(context);
             unawaited(s.findSimilar(path: hit.path));
+          },
+          onView: () {
+            Navigator.pop(context);
+            _view([hit], 0);
           },
         ),
       ),
