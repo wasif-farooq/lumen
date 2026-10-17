@@ -50,8 +50,14 @@ with the viewer it can read them whole. The pairing dialog says so.
 - [x] Tests and screenshots (desktop and phone)
 
 ### 3. Video and audio (gated)
-- [ ] Spike: media_kit in the Docker Linux build and the AppImage; libmpv; Android
-- [ ] `MediaView` (start at the moment, transcript with tap to seek, speed), or keep "Play on the laptop"
+- [x] Spike (2026-10-17): media_kit 1.2 builds in the Docker Linux build once the image has
+      `libmpv-dev` and `make` (its CMake runs a nested Makefile build); the app bundle stays 32 MB.
+      But the app is then linked to `libmpv.so.2` and won't start at all without it, and Ubuntu's
+      `mpv` package doesn't install it (it needs `libmpv2`). The .deb could depend on libmpv2; the
+      AppImage would have to carry libmpv and part of its dependencies; Android adds ~20-30 MB per ABI.
+- [x] Decision: ship the viewer without in-app media; video and audio keep "Play on the laptop"
+      (mpv / VLC at the found moment). Revisit with the Android build.
 
 ### 4. Finish
-- [ ] README; full checks; try it by hand; commit on the branch; merge and push (v0.5.0) when asked
+- [x] README
+- [ ] Full checks; try it by hand; commit on the branch; merge and push (v0.5.0) when asked

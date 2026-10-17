@@ -11,6 +11,7 @@ It runs on your laptop with a local model (Ollama) by default. Nothing leaves th
 - **Searches everything you index**: file names, the text of PDFs, Word, Excel and PowerPoint files, OpenDocument files, e-books (EPUB), notes and code, descriptions of photos and scanned pages, and transcripts of video and audio with timestamps ("play it at 10:05").
 - **Finds pictures by what they show**, and finds images that look like a given photo (drop one on the chat).
 - **Answers questions about a file** by reading it, and opens files or shows them in their folder.
+- **Reads files inside the app**, on the laptop and on a paired phone: PDFs open at the page that matched, with the words marked; images zoom; text, code and Markdown load as you scroll; Word, Excel, PowerPoint, OpenDocument and EPUB show as readable documents with real tables ([Viewing files](#viewing-files)).
 - **Notes, to-dos and reminders**: "note: the plumber is Ahmed, 0300 1234567", "add milk to my shopping list", "remind me every Monday at 9 to pay the rent", by typing or talking ([Notes, to-dos and reminders](#notes-to-dos-and-reminders)).
 - **Talk to it**: ask out loud and hear the answer, in the same chat as typing. Speech is turned into text and back on your laptop ([Voice chat](#voice-chat)).
 - **Organises files with your approval**: create folders and files, copy, move and rename. Every change asks first and can be undone. It cannot delete anything.
@@ -92,6 +93,20 @@ More in [app/README.md](app/README.md), including the phone app and pairing.
 | Settings: models and providers | Sync: live indexing progress |
 |---|---|
 | ![Models](app/test/screens/desktop_models.png) | ![Sync](app/test/screens/desktop_index_running.png) |
+
+## Viewing files
+
+**View** on a search result (or in the preview panel) reads the file in the app, in place of the chat on the laptop and full screen on the phone; **Open in default app** is next to it.
+
+| File | In the app |
+|---|---|
+| PDF | Pages at screen sharpness, opening at the page the search matched with the words outlined; previous/next match, zoom |
+| Image | Full size, zoom and pan, double-tap; swipe or arrows for the next result |
+| Text, code, Markdown | Loads as you scroll (a large log opens at once); code with line numbers; Markdown formatted |
+| Word, Excel, PowerPoint, OpenDocument, EPUB, CSV | Headings, paragraphs, real tables, slide / sheet / chapter dividers |
+| Video, audio | Still played on the laptop (mpv or VLC at the found moment); in-app playback needs libmpv, see [docs/VIEWER.md](docs/VIEWER.md) |
+
+"Find in file" works in all of them (press Enter again for the next match). The server prepares everything (pages, text, tables), so the phone needs no PDF or Office support of its own. Only files in your indexed folders can be viewed, never ones kept out of the index; a paired phone can read them too, which the pairing screen says.
 
 ## Notes, to-dos and reminders
 
@@ -202,6 +217,7 @@ The server (`lumen/`) is a package per area. Each one exposes a few functions or
 | `search/` | full-text search, passages for questions, visual search, hybrid image search | |
 | `providers/` | Ollama and OpenAI-compatible backends behind one interface, the provider registry, model checks, Ollama downloads | Adapter |
 | `agent/` | the LangGraph agent, its prompts, a chat session, and its tools by area | |
+| `viewer/` | reading files in the app: what a file is, PDF pages and matches, text in pieces, documents as blocks | |
 | `planner/` | notes (Markdown files), to-do lists and reminders (planner.db), plain-words times, reminders going off | |
 | `voice/` | voice chat's speech: voice detection and end of a question, speech to text, text to speech, answers made speakable | Strategy (speech backend) |
 | `fileops/` | file changes: plan, approve, apply, undo (journal) | Command |
