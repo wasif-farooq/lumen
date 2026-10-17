@@ -42,6 +42,9 @@ class _PairDialogState extends State<PairDialog> {
           Text('Address: ${widget.address}', style: monoStyle(size: 13, color: C.text2)),
           const SizedBox(height: 6),
           Text('Code expires in $left s', style: const TextStyle(fontSize: 13, color: C.muted)),
+          const SizedBox(height: 12),
+          const Text('A paired phone can search and read the files in your indexed folders.',
+              style: TextStyle(fontSize: 13, color: C.text3)),
           if (!widget.lan)
             const Padding(
               padding: EdgeInsets.only(top: 12),

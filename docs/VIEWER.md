@@ -41,13 +41,13 @@ with the viewer it can read them whole. The pairing dialog says so.
 - [x] Tests through the HTTP API (made-up sample files)
 
 ### 2. App: viewers
-- [ ] `core/api/viewer_api.dart` and models; `ViewerScreen` (top bar, back, previous/next)
-- [ ] `PdfView` (lazy pages, zoom, opens at the match, highlights, find)
-- [ ] `ImageView` (zoom, pan, double-tap, keys/swipe)
-- [ ] `TextView` (pieces as you scroll, line numbers, Markdown, highlights, find)
-- [ ] `DocumentView` (headings, paragraphs, tables, breaks)
-- [ ] Entry points: result cards, FileDetails, video cards, the phone's result sheet; the pairing note
-- [ ] Tests and screenshots (desktop and phone)
+- [x] `core/api/viewer_api.dart` and models; `ViewerScreen` (top bar, back, previous/next)
+- [x] `PdfView` (lazy pages, zoom, opens at the match, highlights, find)
+- [x] `ImageView` (zoom, pan, double-tap, keys/swipe)
+- [x] `TextView` (pieces as you scroll, line numbers, Markdown, highlights, find)
+- [x] `DocumentView` (headings, paragraphs, tables, breaks)
+- [x] Entry points: result cards, FileDetails, video cards, the phone's result sheet; the pairing note
+- [x] Tests and screenshots (desktop and phone)
 
 ### 3. Video and audio (gated)
 - [ ] Spike: media_kit in the Docker Linux build and the AppImage; libmpv; Android

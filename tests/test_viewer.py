@@ -1,3 +1,4 @@
+# ruff: noqa: F811  (fixtures imported from other test modules are parameters here)
 """Reading files in the app: kinds, PDF pages and matches, images, text in pieces, documents as
 blocks, media streaming with seeking, and what may not be read."""
 
@@ -26,7 +27,9 @@ def test_what_kind_of_file(local, env, report, office_files):
     def kind(path):
         return view(local, path=str(path)).json()["kind"]
 
-    assert kind(report) == "pdf" and view(local, path=str(report)).json()["pages"] == 3
+    pdf_info = view(local, path=str(report)).json()
+    assert pdf_info["kind"] == "pdf" and pdf_info["pages"] == 3 and len(pdf_info["shapes"]) == 3
+    assert pdf_info["shapes"][0] == pytest.approx(842 / 595, abs=0.01)  # A4 portrait
     assert kind(env.files["image"]) == "image"
     assert kind(env.files["notes"]) == "text"
     assert kind(env.files["recipe"]) == "markdown"
@@ -34,9 +37,10 @@ def test_what_kind_of_file(local, env, report, office_files):
     assert kind(office_files / "budget-2025.xlsx") == "table"
     assert kind(office_files / "roadmap.pptx") == "slides"
     (env.documents / "tool.py").write_text("print('hi')\n")
-    assert view(local, path=str(env.documents / "tool.py")).json() | {"kind": "code", "language": "py"} == view(
-        local, path=str(env.documents / "tool.py")
-    ).json()
+    assert (
+        view(local, path=str(env.documents / "tool.py")).json() | {"kind": "code", "language": "py"}
+        == view(local, path=str(env.documents / "tool.py")).json()
+    )
 
 
 def test_pdf_pages_and_where_the_words_are(local, report):
@@ -130,7 +134,7 @@ def test_a_word_document_keeps_headings_and_tables_in_order(local, env):
 
 
 @needs_ffmpeg
-def test_video_streams_with_seeking(local, clip):  # noqa: F811
+def test_video_streams_with_seeking(local, clip):
     whole = view(local, "/stream", path=str(clip))
     assert whole.status_code == 200 and whole.content == clip.read_bytes()
     part = local.get("/api/view/stream", params={"path": str(clip)}, headers={"Range": "bytes=100-199"})
@@ -160,5 +164,6 @@ def test_what_may_not_be_read(local, remote, env, tmp_path, report):
 def test_a_paired_phone_can_read(local, remote, env):
     code = local.post("/api/pair/start").json()["code"]
     token = remote.post("/api/pair", json={"code": code, "name": "Alex's phone"}).json()["token"]
-    r = remote.get("/api/view/text", params={"path": str(env.files["notes"])}, headers={"Authorization": f"Bearer {token}"})
+    auth = {"Authorization": f"Bearer {token}"}
+    r = remote.get("/api/view/text", params={"path": str(env.files["notes"])}, headers=auth)
     assert r.status_code == 200 and "budget review" in r.json()["text"]

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 
@@ -9,6 +11,7 @@ import '../chat/composer.dart';
 import '../planner/planner_screen.dart';
 import '../preview/file_details.dart';
 import '../settings/settings_screen.dart';
+import '../viewer/viewer_screen.dart';
 import 'chat_header.dart';
 import 'sidebar.dart';
 
@@ -24,6 +27,7 @@ class DesktopShell extends StatefulWidget {
 class _DesktopShellState extends State<DesktopShell> {
   String page = 'chat';
   bool dragging = false;
+  (List<ViewTarget>, int)? viewing; // a file read in the app, in place of the chat
 
   static const _settingsTabs = {'settings': 0, 'models': 1, 'index': 2};
 
@@ -39,6 +43,27 @@ class _DesktopShellState extends State<DesktopShell> {
   }
 
   AppState get s => widget.state;
+
+  void _view(List<Hit> hits, int index) =>
+      setState(() => viewing = ([for (final h in hits) ViewTarget.fromHit(h)], index));
+
+  Widget _viewer((List<ViewTarget>, int) v) => ViewerScreen(
+        key: ValueKey(v),
+        api: s.api,
+        targets: v.$1,
+        index: v.$2,
+        actions: ViewerActions(
+          close: () => setState(() => viewing = null),
+          openOnLaptop: (path, start) => unawaited(runGuarded<String>(context, () => s.api.open(path, start: start),
+              failure: 'Could not open it', success: _said)),
+          showInFolder: (path) =>
+              unawaited(runGuarded<String>(context, () => s.api.show(path), failure: 'Could not show it', success: _said)),
+          ask: (name) {
+            setState(() => viewing = null);
+            unawaited(s.send('What is in $name?'));
+          },
+        ),
+      );
 
   Future<void> _open(Hit hit, {double start = 0}) =>
       runGuarded<String>(context, () => s.api.open(hit.path, start: start), failure: 'Could not open ${hit.name}', success: _said);
@@ -61,7 +86,14 @@ class _DesktopShellState extends State<DesktopShell> {
         builder: (context, _) => LayoutBuilder(builder: (context, c) {
           final showPreview = page == 'chat' && s.selected != null && c.maxWidth >= 1100;
           return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Sidebar(state: s, page: page, onPage: (p) => setState(() => page = p)),
+            Sidebar(
+              state: s,
+              page: page,
+              onPage: (p) => setState(() {
+                page = p;
+                viewing = null;
+              }),
+            ),
             Expanded(
               child: switch (page) {
                 'planner' => PlannerScreen(state: s),
@@ -70,6 +102,7 @@ class _DesktopShellState extends State<DesktopShell> {
                     tab: _settingsTabs[page]!,
                     onTab: (i) => setState(() => page = _settingsTabs.entries.firstWhere((e) => e.value == i).key),
                   ),
+                _ when viewing != null => _viewer(viewing!),
                 _ => DropTarget(
                     onDragEntered: (_) => setState(() => dragging = true),
                     onDragExited: (_) => setState(() => dragging = false),
@@ -77,7 +110,7 @@ class _DesktopShellState extends State<DesktopShell> {
                     child: Stack(children: [
                       Column(children: [
                         ChatHeader(state: s),
-                        Expanded(child: ChatView(state: s, onOpen: _open, onShow: _show)),
+                        Expanded(child: ChatView(state: s, onOpen: _open, onShow: _show, onView: _view)),
                         Composer(state: s),
                       ]),
                       if (dragging)
@@ -113,6 +146,7 @@ class _DesktopShellState extends State<DesktopShell> {
                   onAsk: s.send,
                   onClose: () => s.select(null),
                   onSimilar: () => s.findSimilar(path: s.selected!.path),
+                  onView: () => _view([s.selected!], 0),
                 ),
               ),
           ]);

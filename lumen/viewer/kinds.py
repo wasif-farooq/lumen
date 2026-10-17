@@ -45,6 +45,7 @@ def describe(p: Path) -> dict:
         from . import pdf
 
         info["pages"] = pdf.page_count(p)
+        info["shapes"] = pdf.page_shapes(p)  # height / width of each page
     elif k == "code":
         info["language"] = ext
     elif k in ("video", "audio"):

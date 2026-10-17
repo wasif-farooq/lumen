@@ -8,11 +8,22 @@ from ..core import errors
 MAX_MATCHES = 200  # rectangles returned for one search
 
 
+MAX_SIZES = 5000  # page shapes sent up front (the app lays out the pages before they load)
+
+
 def page_count(p: Path) -> int:
     import pymupdf
 
     with pymupdf.open(p) as doc:
         return doc.page_count
+
+
+def page_shapes(p: Path) -> list[float]:
+    """Each page's height as a share of its width, so the app can jump to page 30 before any loads."""
+    import pymupdf
+
+    with pymupdf.open(p) as doc:
+        return [round(doc[i].rect.height / doc[i].rect.width, 4) for i in range(min(doc.page_count, MAX_SIZES))]
 
 
 def page_text(p: Path, page: int) -> str:

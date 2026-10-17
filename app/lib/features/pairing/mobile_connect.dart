@@ -74,7 +74,8 @@ class _MobileConnectState extends State<MobileConnect> {
               const SizedBox(height: 28),
               const Text('Connect to your laptop', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w600, height: 1.2)),
               const SizedBox(height: 8),
-              const Text('Your files stay on the laptop. This phone sends questions and shows the answers.', style: TextStyle(color: C.text3, fontSize: 15)),
+              const Text('Your files stay on the laptop. This phone asks, shows the answers, and reads files from the laptop when you open them.',
+                  style: TextStyle(color: C.text3, fontSize: 15)),
               const SizedBox(height: 28),
               Row(children: [
                 Text(searching ? 'Looking on this Wi-Fi…' : 'Found on this Wi-Fi', style: const TextStyle(fontSize: 13, color: C.muted)),
