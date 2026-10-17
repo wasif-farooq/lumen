@@ -4,6 +4,7 @@ import '../../core/app_state.dart';
 import '../../core/format.dart';
 import '../../shared/theme.dart';
 import '../../shared/widgets/common.dart';
+import '../planner/planner_cards.dart';
 import 'approval_card.dart';
 import 'copy.dart';
 import 'message_parts.dart';
@@ -162,7 +163,7 @@ class _ChatViewState extends State<ChatView> {
           child: Text(e.text, style: const TextStyle(color: C.red)),
         );
       default:
-        return const SizedBox.shrink();
+        return plannerCard(e, s) ?? const SizedBox.shrink(); // notes, to-dos, reminders
     }
   }
 }

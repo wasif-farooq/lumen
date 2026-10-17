@@ -70,6 +70,7 @@ Architecture: amd64
 Maintainer: Wasif Farooq <wasif0332@gmail.com>
 Installed-Size: $(du -sk "$DEB" | cut -f1)
 Depends: libgtk-3-0t64 | libgtk-3-0, ffmpeg, xdg-utils
+Recommends: libnotify-bin
 Section: utils
 Priority: optional
 Homepage: https://github.com/wasif-farooq/lumen

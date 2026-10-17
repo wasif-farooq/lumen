@@ -61,6 +61,12 @@ def undo(action_id: str) -> str:
         raise FileOpError("That change was already undone.")
     if not settings.write_enabled:
         raise FileOpError("Test mode: nothing to undo.")
+    if entry["op"] in ("note_edit", "note_delete"):
+        from ..planner import notes  # notes use this module's Trash
+
+        msg = notes.undo(entry)
+        _mark_undone(entries, action_id)
+        return msg
     dst = Path(entry["dst"])
     if entry["op"] == "move":
         src = Path(entry["src"])
@@ -80,11 +86,15 @@ def undo(action_id: str) -> str:
         else:
             _trash(dst)
             msg = f"Sent {dst} to the Trash"
+    _mark_undone(entries, action_id)
+    return msg
+
+
+def _mark_undone(entries: list[dict], action_id: str) -> None:
     for e in entries:
         if e["id"] == action_id:
             e["undone"] = True
     journal.save(entries)
-    return msg
 
 
 def _trash(p: Path) -> None:

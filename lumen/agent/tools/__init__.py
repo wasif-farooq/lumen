@@ -2,7 +2,7 @@
 
 from collections.abc import Callable
 
-from . import changes, files, images, search
+from . import changes, files, images, planner, search
 from .context import ToolContext
 
 # The order the model sees them in
@@ -19,6 +19,12 @@ ORDER = [
     "create_file",
     "copy_file",
     "move_file",
+    "add_note",
+    "add_todo",
+    "show_todos",
+    "complete_todo",
+    "set_reminder",
+    "cancel_reminder",
 ]
 
 
@@ -26,6 +32,6 @@ def make_tools(emit: Callable[[dict], None] | None = None, app: bool = False, st
     """The tool set for one chat session (see ToolContext for emit and state)."""
     ctx = ToolContext(emit, app, state)
     tools = {}
-    for module in (search, images, files, changes):
+    for module in (search, images, files, changes, planner):
         tools.update(module.build(ctx))
     return [tools[name] for name in ORDER]

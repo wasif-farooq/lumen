@@ -8,6 +8,9 @@ from .settings import settings
 
 # Saved by name; the type turns JSON values back into settings values
 FIELDS = {
+    "notes_dir": str,
+    "reminder_notify": bool,
+    "reminder_speak": bool,
     "voice_stt_model": str,
     "voice_tts_voice": str,
     "gitignore": bool,
@@ -30,6 +33,9 @@ def current() -> dict:
     out["roots"] = [str(r) for r in settings.roots]
     out["paused_roots"] = [str(r) for r in settings.paused_roots]
     out["excluded"] = list(settings.excluded)
+    from ..planner.notes import folder  # (planner imports settings)
+
+    out["notes_folder"] = str(folder())
     return out
 
 
@@ -40,10 +46,10 @@ def load() -> None:
     except (OSError, ValueError):
         return
     try:
-        _apply(saved)
+        _apply(saved, strict=False)
     except ValueError:
         # A saved folder is gone (or not mounted, e.g. in Docker): keep the default folders
-        _apply({k: v for k, v in saved.items() if k != "roots"})
+        _apply({k: v for k, v in saved.items() if k != "roots"}, strict=False)
 
 
 def update(changes: dict) -> dict:
@@ -53,7 +59,7 @@ def update(changes: dict) -> dict:
     return current()
 
 
-def _apply(values: dict) -> None:
+def _apply(values: dict, strict: bool = True) -> None:
     changes = {name: typ(values[name]) for name, typ in FIELDS.items() if values.get(name) is not None}
     if "roots" in values and values["roots"]:
         changes["roots"] = check_roots(values["roots"])
@@ -61,7 +67,23 @@ def _apply(values: dict) -> None:
         changes["paused_roots"] = [Path(p).expanduser().resolve() for p in values["paused_roots"] or []]
     if "excluded" in values:
         changes["excluded"] = sorted({str(Path(p).expanduser().resolve()) for p in values["excluded"] or []})
+    if changes.get("notes_dir"):
+        try:
+            roots = changes.get("roots") or settings.roots
+            changes["notes_dir"] = str(check_notes_dir(str(changes["notes_dir"]), roots))  # type: ignore[arg-type]
+        except ValueError:
+            if strict:
+                raise
+            changes.pop("notes_dir")  # at start: the default notes folder rather than none
     settings.update(**changes)
+
+
+def check_notes_dir(path: str, roots: list[Path]) -> Path:
+    """The notes folder must be inside an indexed folder, so search finds the notes."""
+    p = Path(path).expanduser().resolve()
+    if not any(p == r or p.is_relative_to(r) for r in roots):
+        raise ValueError(f"Put the notes folder inside one of your indexed folders, so search finds the notes: {p}")
+    return p
 
 
 def check_roots(paths: list[str]) -> list[Path]:

@@ -6,6 +6,7 @@ import '../../core/errors/run_guarded.dart';
 import '../../shared/theme.dart';
 import '../chat/chat_view.dart';
 import '../chat/composer.dart';
+import '../planner/planner_screen.dart';
 import '../preview/file_details.dart';
 import '../settings/settings_screen.dart';
 import 'chat_header.dart';
@@ -63,6 +64,7 @@ class _DesktopShellState extends State<DesktopShell> {
             Sidebar(state: s, page: page, onPage: (p) => setState(() => page = p)),
             Expanded(
               child: switch (page) {
+                'planner' => PlannerScreen(state: s),
                 'settings' || 'models' || 'index' => SettingsScreen(
                     state: s,
                     tab: _settingsTabs[page]!,

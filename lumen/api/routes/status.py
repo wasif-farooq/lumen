@@ -87,7 +87,10 @@ def put_settings(body: dict, svc: Services = Depends(services)) -> SettingsOut:
         except ValueError as e:
             raise errors.InvalidInput(str(e)) from e
     roots_before = list(settings.roots)
-    out = preferences.update(body)
+    try:
+        out = preferences.update(body)
+    except ValueError as e:  # e.g. a notes folder outside the indexed folders
+        raise errors.InvalidInput(str(e)) from e
     if settings.cpu_only != before or settings.roots != roots_before:
         svc.chats.forget_sessions()  # rebuild agents with the new GPU/CPU choice / folder list
     return SettingsOut.model_validate(out)

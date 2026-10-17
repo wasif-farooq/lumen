@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../core/app_state.dart';
 import '../../shared/theme.dart';
 import '../../shared/widgets/photo_picker.dart';
+import '../planner/reminder_banner.dart';
 import '../voice/voice_bar.dart';
 
 /// Above the message box while Lumen works: "Searching your files · “tax” · PDF…".
@@ -69,6 +70,7 @@ class _ComposerState extends State<Composer> {
         child: Padding(
           padding: EdgeInsets.fromLTRB(widget.compact ? 12 : 28, 0, widget.compact ? 12 : 28, widget.compact ? 12 : 10),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
+            ReminderBanner(state: widget.state), // reminders that went off
             // what Lumen is doing right now (the voice bar says it while voice is on)
             if (widget.state.working != null && !widget.state.voice.on) StatusLine(text: widget.state.working!),
             VoiceBar(voice: widget.state.voice),

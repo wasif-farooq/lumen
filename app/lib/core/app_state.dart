@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../features/chat/chat_state.dart';
+import '../features/planner/reminders_state.dart';
 import '../features/voice/voice_controller.dart';
 import 'api/api.dart';
 import 'errors/errors.dart';
@@ -9,10 +10,11 @@ export 'api/api.dart';
 export 'models/chat.dart';
 export 'models/file_info.dart';
 export 'models/hit.dart';
+export 'models/planner.dart';
 
-/// The app's connection to one laptop: its status, and the conversations (ChatState),
-/// shared by desktop and mobile.
-class AppState extends ChangeNotifier with ChatState {
+/// The app's connection to one laptop: its status, the conversations (ChatState) and reminders
+/// that went off (RemindersState), shared by desktop and mobile.
+class AppState extends ChangeNotifier with ChatState, RemindersState {
   AppState(this.api, {VoiceDevices? voiceDevices}) {
     voice = VoiceController(this, devices: voiceDevices);
   }

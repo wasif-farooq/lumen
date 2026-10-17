@@ -31,6 +31,7 @@ class _MobileHomeState extends State<MobileHome> {
       final (base, token, _) = saved;
       state = AppState(Api(base, token: token));
       await state!.connect();
+      state!.watchReminders(); // the banner for reminders that go off
     }
     if (mounted) setState(() => loading = false);
   }
@@ -39,11 +40,13 @@ class _MobileHomeState extends State<MobileHome> {
     await Pairing.save(base, token, host);
     final s = AppState(Api(base, token: token));
     await s.connect();
+    s.watchReminders();
     if (mounted) setState(() => state = s);
   }
 
   Future<void> _unpair() async {
     await Pairing.clear();
+    state?.stopWatchingReminders();
     if (mounted) setState(() => state = null);
   }
 

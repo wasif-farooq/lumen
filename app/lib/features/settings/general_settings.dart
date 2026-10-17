@@ -7,6 +7,7 @@ import '../../shared/widgets/cards.dart';
 import '../../shared/widgets/error_views.dart';
 import 'diagnostics_card.dart';
 import 'general_controller.dart';
+import 'notes_settings.dart';
 import 'phones_card.dart';
 import 'setting_controls.dart';
 
@@ -49,6 +50,7 @@ class _GeneralSettingsState extends State<GeneralSettings> {
                 CardColumn(children: [
                   _IndexingCard(settings: c.settings, onSet: _set),
                   _PowerCard(settings: c.settings, power: Map<String, dynamic>.from(st['power'] as Map? ?? const {}), onSet: _set),
+                  NotesSettingsCard(settings: c.settings, onSet: _set),
                 ]),
                 CardColumn(children: [
                   PhonesCard(c: c, lan: st['lan'] == true),
